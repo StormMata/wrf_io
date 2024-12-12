@@ -1,4 +1,5 @@
 import os
+import io
 import re
 import math
 import numpy as np
@@ -520,8 +521,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     turbine_center_x = namelist.i_parent_start * namelist.outer_dx + turbine.turb_x
 
     # Define the console for rich output
-    # console = Console(record=True)
-    console = Console()
+    console = Console(record=True)
 
     # Create a rich table
     table = Table()
@@ -682,7 +682,22 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     #########################################
 
     # Export the table to plain text
-    table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
+    # table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
+
+    # Suppress output to the terminal
+    buffer = io.StringIO()  # Create a buffer
+    original_file = console.file  # Save the original console output stream
+
+    try:
+        # Redirect console output to the buffer
+        console.file = buffer
+        console.print(table)  # Render the table (output goes to the buffer)
+    finally:
+        # Restore the original console output stream
+        console.file = original_file
+
+    # Retrieve the table as plain text
+    table_text = buffer.getvalue()
 
     # Export the table to plain text
     # from io import StringIO
