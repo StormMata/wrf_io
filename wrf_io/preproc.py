@@ -521,7 +521,8 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     turbine_center_x = namelist.i_parent_start * namelist.outer_dx + turbine.turb_x
 
     # Define the console for rich output
-    console = Console(record=True)
+    # console = Console(record=True)
+    console = Console()
 
     # Create a rich table
     table = Table()
