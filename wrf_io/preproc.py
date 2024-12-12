@@ -374,7 +374,7 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))  # Transparent background for y-axis pane
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))  # Transparent background for z-axis pane
 
-    if not opt_params['plot_outer']:
+    if 'plot_outer' in opt_params and opt_params['plot_outer'] == False:
         plt.close(fig) 
 
     return fig
