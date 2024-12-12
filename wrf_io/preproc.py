@@ -682,7 +682,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     #########################################
 
     # Export the table to plain text
-    table_text = console.export_text(table, styles=False)  # Optionally remove styles for plain text
+    table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
 
     # Export the table to plain text
     # from io import StringIO
