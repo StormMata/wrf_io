@@ -359,8 +359,13 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     ax.set_ylabel(r'$y/D$ [-]', labelpad=15, fontsize=9)
     ax.set_zlabel(r'$z/D$ [-]', fontsize=9)
 
-    # Change the camera angle
-    ax.view_init(elev=30, azim=-150)
+    # Set camera angle
+    if 'outer_align' in opt_params and opt_params['outer_align']:
+        ax.view_init(elev=90, azim=-90)
+        ax.plot([0, outer_length], [outer_width/2, outer_width/2], [0, 0], color='red', linewidth=1, zorder=2)
+    else:
+        ax.view_init(elev=30, azim=-150)
+
     # ax.view_init(elev=9, azim=-170)
     # ax.view_init(elev=0, azim=90)
     # ax.view_init(elev=90, azim=-90)
@@ -680,7 +685,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         table_text = buffer.getvalue() # Retrieve the text from the buffer
 
     # Define the output filename
-    output_filename = opt_params['save_to'] + "/summary.txt"
+    output_filename = opt_params['save_to'] + "/overview.txt"
 
     # Write the exported table to the file
     with open(output_filename, "w") as file:
