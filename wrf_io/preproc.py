@@ -495,7 +495,7 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
 
     ax.set_aspect('equal', adjustable='box')
 
-    if not opt_params['plot_inner']:
+    if 'plot_inner' in opt_params and opt_params['plot_inner'] == False:
         plt.close(fig) 
 
     return fig
