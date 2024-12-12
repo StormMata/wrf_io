@@ -675,7 +675,8 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     table.add_row("", "", "", end_section=True)
 
     # Print the table to the console
-    console.print(table)
+    if 'print_table' in opt_params and opt_params['print_table']:
+        console.print(table)
 
     #########################################
 
@@ -763,7 +764,7 @@ def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[st
     img1.close()
     img2.close()
 
-def validate(opt_params: Dict[str, Any]):
+def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
     """
     Convenience function for:
         1. Parsing input files
@@ -794,3 +795,5 @@ def validate(opt_params: Dict[str, Any]):
         combine_domain_plots(fig1=out_fig, fig2=in_fig, opt_params=opt_params)
 
     summary_table(namelist=namelist, turbine=turbine, opt_params=opt_params)
+
+    return namelist, turbine
