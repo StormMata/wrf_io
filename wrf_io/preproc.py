@@ -24,7 +24,7 @@ Namelist = namedtuple('Namelist', [
 ])
 
 Turbine = namedtuple('Turbine', [
-    'turb_diameter','hub_diameter', 'turb_x', 'turb_y', 'inflow_loc', 'hubheight'
+    'hubheight', 'turb_diameter','hub_diameter', 'inflow_loc', 'rot_dir', 'irrot_ct', 'turb_x', 'turb_y'
 ])
 
 
@@ -38,7 +38,10 @@ def parse_namelist(opt_params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         config: A dictionary of parsed values
     """
-    file_path = opt_params['base_path'] + '/namelists/' + opt_params['rotor_model'].lower() +'_namelist.input'
+    if 'name_path' in opt_params:
+        file_path = opt_params['name_path']
+    else:
+        file_path = opt_params['read_from'] + '/namelists/' + opt_params['rotor_model'].lower() +'_namelist.input'
 
     config = {}
     current_section = None
@@ -94,7 +97,7 @@ def parse_turbine_properties(opt_params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         config: A dictionary of parsed values
     """
-    file_path = opt_params['base_path'] + '/case/windTurbines/' + opt_params['turb_model'] + '/turbineProperties.tbl'
+    file_path = opt_params['read_from'] + '/case/windTurbines/' + opt_params['turb_model'] + '/turbineProperties.tbl'
 
     config = {}
 
@@ -126,7 +129,7 @@ def parse_turbine_location(opt_params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         config: A dictionary of parsed values
     """
-    file_path = opt_params['base_path'] + '/turbines/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
+    file_path = opt_params['read_from'] + '/turbines/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
 
     config = []
 
@@ -193,13 +196,18 @@ def load_variables(parsed_config: Dict[str, Any], parsed_turbine: Dict[str, Any]
     )
 
     turbine = Turbine(
+        hubheight      = float(parsed_turbine['Hub height [m]']),
+
         turb_diameter  = float(parsed_turbine['Rotor diameter [m]']),
         hub_diameter   = float(parsed_turbine['Hub diameter [m]']),
-        turb_x         = float(parsed_location[0]),
-        turb_y         = float(parsed_location[1]),
-        inflow_loc     = float(parsed_turbine['Inflow location [m]']), 
 
-        hubheight      = float(parsed_turbine['Hub height [m]'])
+        inflow_loc     = float(parsed_turbine['Inflow location [m]']),
+
+        rot_dir        = int(parsed_turbine['Rotation direction [-], 1: clockwise, -1: counter-clockwise, 0: no rotational effects (GAD/GADrs; only for experimental use)']),
+        irrot_ct       = float(parsed_turbine['CT, Constant thrust coefficient for GAD/GADrs. It should be applied when rotational effects are neglected. E.g., CT=0.77 for Uinf=8.0 m s-1. Only for experimental use.']),
+
+        turb_x         = float(parsed_location[0]),
+        turb_y         = float(parsed_location[1])
     )
 
     return namelist, turbine
@@ -574,6 +582,18 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     table.add_row("[bold underline]ROTOR[/bold underline]", "", "")
     table.add_row("", "", "")
     table.add_row("Model", f"{opt_params['rotor_model']}", "")
+
+    if turbine.rot_dir == 1:
+        rot_dir = 'clockwise'
+    if turbine.rot_dir == -1:
+        rot_dir = 'counterclockwise'
+    if turbine.rot_dir == 0:
+        rot_dir = 'irrotational'
+    table.add_row("Rotation", f"{rot_dir}", "")
+
+    if turbine.rot_dir == 0:
+        table.add_row("Constant CT", f"{turbine.irrot_ct}", "")
+
     nSecmin = np.ceil(np.pi / (np.arcsin(namelist.inner_dx / turbine.turb_diameter)))
     if (namelist.nSections < nSecmin):
         table.add_row("Sections", f"{namelist.nSections:.0f}", f">{nSecmin:.0f}")
@@ -663,7 +683,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
 
     # Define the output filename
-    output_filename = opt_params['base_path'] + "/summary.txt"
+    output_filename = opt_params['save_to'] + "/summary.txt"
 
     # Write the exported table to the file
     with open(output_filename, "w") as file:
@@ -733,7 +753,7 @@ def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[st
     combined_img.paste(img2, (0, height1))
     
     # Save the combined image as a PNG
-    combined_img.save(opt_params['base_path'] + "/combined.png", dpi=(500, 500))
+    combined_img.save(opt_params['save_to'] + "/domains.png", dpi=(500, 500))
     
     # Optionally, remove the temporary individual PNG files
     os.remove("plot1.png")
@@ -765,10 +785,10 @@ def validate(opt_params: Dict[str, Any]):
     in_fig  = plot_inner_domain(namelist=namelist, turbine=turbine, opt_params=opt_params)
 
     if 'save_outer' in opt_params and opt_params['save_outer']:
-        out_fig.savefig(opt_params['base_path'] + '/outer.png', dpi=500, bbox_inches='tight', pad_inches=0.05)
+        out_fig.savefig(opt_params['save_to'] + '/outer.png', dpi=500, bbox_inches='tight', pad_inches=0.05)
 
     if 'save_inner' in opt_params and opt_params['save_inner']:
-        in_fig.savefig(opt_params['base_path'] + '/inner.png', dpi=500, bbox_inches='tight')
+        in_fig.savefig(opt_params['save_to'] + '/inner.png', dpi=500, bbox_inches='tight')
 
     if 'save_both' in opt_params and opt_params['save_both']:
         combine_domain_plots(fig1=out_fig, fig2=in_fig, opt_params=opt_params)
