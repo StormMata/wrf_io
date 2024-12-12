@@ -520,7 +520,8 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     turbine_center_x = namelist.i_parent_start * namelist.outer_dx + turbine.turb_x
 
     # Define the console for rich output
-    console = Console(record=True)
+    # console = Console(record=True)
+    console = Console()
 
     # Create a rich table
     table = Table()
@@ -681,7 +682,15 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     #########################################
 
     # Export the table to plain text
-    table_text = console.export_text(table, styles=False)  # Optionally remove styles for plain text
+    # table_text = console.export_text(table, styles=False)  # Optionally remove styles for plain text
+
+    # Export the table to plain text
+    from io import StringIO
+    buffer = StringIO()
+    console.file = buffer  # Redirect console output to the buffer
+    console.print(table)  # Render the table to the buffer
+    table_text = buffer.getvalue()  # Get the content of the buffer
+    buffer.close()  # Close the buffer
 
     # Define the output filename
     output_filename = opt_params['save_to'] + "/summary.txt"
