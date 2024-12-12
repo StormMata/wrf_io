@@ -678,23 +678,35 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     # Print the table to the console
     if 'print_table' in opt_params and opt_params['print_table']:
         console.print(table)
+        table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
+    else:
+        # Create an in-memory string buffer
+        buffer = StringIO()
 
+        # Create a Console instance that writes to the buffer
+        console = Console(file=buffer)
+
+        # Print the table to the buffer
+        console.print(table)
+
+        # Retrieve the text from the buffer
+        table_text = buffer.getvalue()
     #########################################
 
     # Export the table to plain text
     # table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
 
     # Create an in-memory string buffer
-    buffer = StringIO()
+    # buffer = StringIO()
 
-    # Create a Console instance that writes to the buffer
-    console = Console(file=buffer)
+    # # Create a Console instance that writes to the buffer
+    # console = Console(file=buffer)
 
-    # Print the table to the buffer
-    console.print(table)
+    # # Print the table to the buffer
+    # console.print(table)
 
-    # Retrieve the text from the buffer
-    table_text = buffer.getvalue()
+    # # Retrieve the text from the buffer
+    # table_text = buffer.getvalue()
 
     # Define the output filename
     output_filename = opt_params['save_to'] + "/summary.txt"
