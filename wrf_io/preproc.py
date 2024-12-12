@@ -691,22 +691,6 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
 
         # Retrieve the text from the buffer
         table_text = buffer.getvalue()
-    #########################################
-
-    # Export the table to plain text
-    # table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
-
-    # Create an in-memory string buffer
-    # buffer = StringIO()
-
-    # # Create a Console instance that writes to the buffer
-    # console = Console(file=buffer)
-
-    # # Print the table to the buffer
-    # console.print(table)
-
-    # # Retrieve the text from the buffer
-    # table_text = buffer.getvalue()
 
     # Define the output filename
     output_filename = opt_params['save_to'] + "/summary.txt"
@@ -714,8 +698,6 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     # Write the exported table to the file
     with open(output_filename, "w") as file:
         file.write(table_text)
-
-    # print(f"Table saved as {output_filename}")
 
 def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[str, Any]):
     """
