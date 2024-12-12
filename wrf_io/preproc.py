@@ -1,5 +1,5 @@
 import os
-import io
+from io import StringIO
 import re
 import math
 import numpy as np
@@ -682,7 +682,19 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     #########################################
 
     # Export the table to plain text
-    table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
+    # table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
+
+    # Create an in-memory string buffer
+    buffer = StringIO()
+
+    # Create a Console instance that writes to the buffer
+    console = Console(file=buffer)
+
+    # Print the table to the buffer
+    console.print(table)
+
+    # Retrieve the text from the buffer
+    table_text = buffer.getvalue()
 
     # Define the output filename
     output_filename = opt_params['save_to'] + "/summary.txt"
