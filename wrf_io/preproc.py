@@ -1,11 +1,11 @@
 import os
-from io import StringIO
 import re
 import math
 import numpy as np
-from PIL import Image
 import matplotlib.pyplot as plt
 
+from PIL import Image
+from io import StringIO
 from rich.table import Table
 from scipy import interpolate
 from rich.console import Console
@@ -39,6 +39,8 @@ def parse_namelist(opt_params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         config: A dictionary of parsed values
     """
+
+    # If the namelist file path is specified directly, use that, otherwise use base path
     if 'name_path' in opt_params:
         file_path = opt_params['name_path']
     else:
@@ -196,6 +198,7 @@ def load_variables(parsed_config: Dict[str, Any], parsed_turbine: Dict[str, Any]
         nElements      = int(parsed_config['physics'].get('wind_wtp_nElements', None))
     )
 
+    # Extract variables for the turbine
     turbine = Turbine(
         hubheight      = float(parsed_turbine['Hub height [m]']),
 
@@ -248,21 +251,20 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
         plt.Figure: The created figure object for saving or displaying.
     """
 
-    outer_length   = namelist.outer_e_we * namelist.outer_dx       # Length of the outer domain (x-direction)
-    outer_width    = namelist.outer_e_sn * namelist.outer_dx       # Width of the outer domain (y-direction)
-    outer_height   = namelist.ztop                        # Height of the outer domain (z-direction)
+    outer_length   = namelist.outer_e_we * namelist.outer_dx      # Length of the outer domain (x-direction)
+    outer_width    = namelist.outer_e_sn * namelist.outer_dx      # Width of the outer domain (y-direction)
+    outer_height   = namelist.ztop                                # Height of the outer domain (z-direction)
 
-    inner_length   = namelist.inner_e_we * namelist.inner_dx       # Length of the inner domain (x-direction)
-    inner_width    = namelist.inner_e_sn * namelist.inner_dx       # Width of the inner domain (y-direction)
-    inner_height   = namelist.ztop                        # Height of the inner domain (z-direction)
-    inner_i        = namelist.i_parent_start * namelist.outer_dx   # Inner domain x-offset from the origin of the outer domain
-    inner_j        = namelist.j_parent_start * namelist.outer_dx   # Inner domain y-offset from the origin of the outer domain
+    inner_length   = namelist.inner_e_we * namelist.inner_dx      # Length of the inner domain (x-direction)
+    inner_width    = namelist.inner_e_sn * namelist.inner_dx      # Width of the inner domain (y-direction)
+    inner_height   = namelist.ztop                                # Height of the inner domain (z-direction)
+    inner_i        = namelist.i_parent_start * namelist.outer_dx  # Inner domain x-offset from the origin of the outer domain
+    inner_j        = namelist.j_parent_start * namelist.outer_dx  # Inner domain y-offset from the origin of the outer domain
 
-    turbine_radius = turbine.turb_diameter / 2           # Radius of the wind turbine circle
+    turbine_radius = turbine.turb_diameter / 2                    # Radius of the wind turbine circle
 
     # Define 3D figure
     fig = plt.figure(figsize=(10, 10))  # Width = 10 inches, Height = 8 inches
-
     ax = fig.add_subplot(111, projection='3d', computed_zorder=False)
 
     # Draw outer domain as a cuboid
@@ -272,14 +274,13 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     ]
 
     faces_outer = [[outer_corners[j] for j in [0, 1, 5, 4]],
-                [outer_corners[j] for j in [3, 0, 4, 7]],
-                [outer_corners[j] for j in [4, 5, 6, 7]]]
+                   [outer_corners[j] for j in [3, 0, 4, 7]],
+                   [outer_corners[j] for j in [4, 5, 6, 7]]]
     ax.add_collection3d(Poly3DCollection(faces_outer, color='skyblue', alpha=0.2, linewidths=1, edgecolors='b', zorder=7))
 
-
     faces_outer = [[outer_corners[j] for j in [1, 2, 6, 5]],
-                [outer_corners[j] for j in [2, 3, 7, 6]],
-                [outer_corners[j] for j in [0, 1, 2, 3]]]
+                   [outer_corners[j] for j in [2, 3, 7, 6]],
+                   [outer_corners[j] for j in [0, 1, 2, 3]]]
     ax.add_collection3d(Poly3DCollection(faces_outer, color='skyblue', alpha=0.2, linewidths=1, linestyle=':', edgecolors='b', zorder=7))
 
     # Calculate inner domain position
@@ -299,10 +300,9 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
         [inner_x_start, inner_y_start + inner_width, inner_z_start + inner_height]
     ]
     faces_inner = [[inner_corners[j] for j in [0, 1, 5, 4]],
-                [inner_corners[j] for j in [3, 0, 4, 7]],
-                [inner_corners[j] for j in [4, 5, 6, 7]]]
+                   [inner_corners[j] for j in [3, 0, 4, 7]],
+                   [inner_corners[j] for j in [4, 5, 6, 7]]]
     ax.add_collection3d(Poly3DCollection(faces_inner, color='orange', alpha=0.25, linewidths=1, edgecolors='r',zorder=6))
-
 
     faces_inner = [[inner_corners[j] for j in [1, 2, 6, 5]],
                 [inner_corners[j] for j in [2, 3, 7, 6]],
@@ -315,7 +315,7 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     turbine_center_z = turbine.hubheight
 
     # Generate points for a filled disk
-    theta = np.linspace(0, 2 * np.pi, 100)  # Angle for full circle
+    theta = np.linspace(0, 2 * np.pi, 100)      # Angle for full circle
     radii = np.linspace(0, turbine_radius, 50)  # Radii from center to edge of disk
 
     # Generate grid of points for the disk
@@ -332,17 +332,18 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     ax.plot([turbine_center_x, turbine_center_x], [turbine_center_y, inner_j], [0, 0], color='black', linewidth=1, zorder=4)
 
     # Set x-ticks at increments of turbine diameter
-    x_ticks = np.arange(0, outer_length + turbine.turb_diameter, turbine.turb_diameter * 5)
+    x_ticks  = np.arange(0, outer_length + turbine.turb_diameter, turbine.turb_diameter * 5)
     x_labels = [f"{int(turb / turbine.turb_diameter)}" for turb in x_ticks]
     ax.set_xticks(x_ticks)
     ax.set_xticklabels(x_labels, fontsize=8.5)
+
     # Set y-ticks at increments of turbine diameter
-    y_ticks = np.arange(0, outer_length + turbine.turb_diameter, turbine.turb_diameter * 5)
+    y_ticks  = np.arange(0, outer_length + turbine.turb_diameter, turbine.turb_diameter * 5)
     y_labels = [f"{int(turb / turbine.turb_diameter)}" for turb in y_ticks]
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(y_labels, fontsize=10)
 
-    z_ticks = [turbine.turb_diameter, turbine.turb_diameter * 3]
+    z_ticks  = [turbine.turb_diameter, turbine.turb_diameter * 3]
     z_labels = ['1','3']  # Format with one decimal point
 
     ax.set_zticks(z_ticks)
@@ -367,13 +368,14 @@ def plot_outer_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     plt.gca().set_aspect('equal', adjustable='box')
 
     # Set the alpha for grid lines on each axis in a 3D plot
-    ax.xaxis._axinfo["grid"].update({"color": (0.5, 0.5, 0.5, 0.10)})  # 30% opacity for x-axis grid
-    ax.yaxis._axinfo["grid"].update({"color": (0.5, 0.5, 0.5, 0.10)})  # 30% opacity for y-axis grid
-    ax.zaxis._axinfo["grid"].update({"color": (0.5, 0.5, 0.5, 0.10)})  # 30% opacity for z-axis grid
+    ax.xaxis._axinfo["grid"].update({"color": (0.5, 0.5, 0.5, 0.10)})  # 10% opacity for x-axis grid
+    ax.yaxis._axinfo["grid"].update({"color": (0.5, 0.5, 0.5, 0.10)})  # 10% opacity for y-axis grid
+    ax.zaxis._axinfo["grid"].update({"color": (0.5, 0.5, 0.5, 0.10)})  # 10% opacity for z-axis grid
 
-    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))  # Transparent background for x-axis pane
-    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))  # Transparent background for y-axis pane
-    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))  # Transparent background for z-axis pane
+    # Set transparent background for axis panes
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 
     if 'plot_outer' in opt_params and opt_params['plot_outer'] == False:
         plt.close(fig) 
@@ -395,9 +397,7 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
         plt.Figure: The created figure object for saving or displaying.
     """
     
-    # Plot inner domain
-
-    # Calculating rectangle dimensions
+    # Calculate rectangle dimensions
     x = namelist.inner_e_we * namelist.inner_dx  # Width of the rectangle
     y = namelist.inner_e_sn * namelist.inner_dx  # Height of the rectangle
 
@@ -427,7 +427,6 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     for i in range(1, cols):
         x_pos = i * dx
         if i == cols - 1:  # Extend the final column to include leftover_x
-        # if i == 2:  # Extend the final column to include leftover_x
             x_pos += leftover_x
         x_pos_array.append(x_pos)
         ax.plot([x_pos, x_pos], [0, y], color='black', linestyle='--', linewidth=1, alpha=0.25)
@@ -441,6 +440,7 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
         y_pos_array.append(y_pos)
         ax.plot([0, x], [y_pos, y_pos], color='black', linestyle='--', linewidth=1, alpha=0.25)
 
+    # Plot a rectangle on the processor patch
     x_pos_array = np.array(x_pos_array)
     y_pos_array = np.array(y_pos_array)
 
@@ -452,7 +452,6 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     x_low  = x_low_filtered[-2] if len(x_low_filtered) > 2 else 0
     x_high = (x_pos_array[x_pos_array > turbine.turb_x])[1]
 
-
     # Create the rectangle patch
     rectangle = Rectangle(
         (x_low, y_low),            # (x, y) starting position of the rectangle
@@ -461,33 +460,31 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
         linewidth=2,               # Border width
         edgecolor='none',          # Border color
         facecolor='grey',          # Fill color
-        alpha=0.12                  # Transparency of the rectangle
+        alpha=0.12                 # Transparency of the rectangle
     )
 
     # Add the rectangle to the plot
     ax.add_patch(rectangle)
 
-    ax.scatter(turbine.turb_x, turbine.turb_y, color='none', edgecolors='red', s=50, label="Single Point", zorder=2)
-    ax.scatter(turbine.turb_x, turbine.turb_y, color='red', s=125, marker='+', label="Single Point", zorder=2)
+    # Plot location of turbine
+    ax.scatter(turbine.turb_x, turbine.turb_y, color='none', edgecolors='red', s=50, zorder=2)
+    ax.scatter(turbine.turb_x, turbine.turb_y, color='red', s=125, marker='+', zorder=2)
 
+    # Plot location of inflow sample point
     if turbine.turb_x < turbine.inflow_loc:
         ax.scatter(0, turbine.turb_y, color='red', s=50, marker='<', label="Single Point", zorder=2)
     else:
         interp_array_x  = np.array([0, 4962])
-        interp_array_dx = np.array([0, 30])
+        interp_array_dx = np.array([0, 35])
         interp_f = interpolate.interp1d(interp_array_x, interp_array_dx, fill_value='extrapolate')
         ax.scatter(turbine.turb_x - turbine.inflow_loc +  interp_f(x), turbine.turb_y, color='red', s=50, marker='<', label="Single Point", zorder=2)
         ax.vlines(turbine.turb_x - turbine.inflow_loc, turbine.turb_y - turbine.turb_diameter/2, turbine.turb_y + turbine.turb_diameter/2, colors='red', linestyles='-')
 
+    # Plot downstream sample points is specified
     if 'slice_loc' in opt_params:
         slices = turbine.turb_x + np.array(np.arange(1,opt_params['slice_loc'] + 1,1)) * turbine.turb_diameter
 
         ax.vlines(slices, turbine.turb_y - turbine.turb_diameter*0.10, turbine.turb_y + turbine.turb_diameter*0.10, colors='green', linestyles='-')
-
-
-    # Set axis limits
-    # ax.set_xlim(-1, x + 1)
-    # ax.set_ylim(-1, y + 1)
 
     # Set labels and title
     ax.set_xlabel("West-East [m]")
@@ -510,8 +507,6 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         turbine (Turbine): A named tuple containing turbine-specific parameters.
         opt_params (Dict): A dictionary of settings
     """
-    
-    # Table
 
     outer_grid = namelist.outer_e_sn * namelist.outer_e_we * namelist.ztop
     inner_grid = namelist.inner_e_sn * namelist.inner_e_we * namelist.ztop
@@ -641,7 +636,6 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     else:
         table.add_row("Lateral blockage", f"{(turbine.turb_diameter / (namelist.outer_e_sn * namelist.outer_dx) * 100):.2f}%", "", end_section=True)
 
-
     # DECOMPOSITION
     table.add_row("[bold underline]DECOMPOSITION[/bold underline]", "", "")
     table.add_row("", "", "")
@@ -680,17 +674,10 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         console.print(table)
         table_text = console.export_text(styles=False)  # Optionally remove styles for plain text
     else:
-        # Create an in-memory string buffer
-        buffer = StringIO()
-
-        # Create a Console instance that writes to the buffer
-        console = Console(file=buffer)
-
-        # Print the table to the buffer
-        console.print(table)
-
-        # Retrieve the text from the buffer
-        table_text = buffer.getvalue()
+        buffer = StringIO()            # Create an in-memory string buffer
+        console = Console(file=buffer) # Create a Console instance that writes to the buffer
+        console.print(table)           # Print the table to the buffer
+        table_text = buffer.getvalue() # Retrieve the text from the buffer
 
     # Define the output filename
     output_filename = opt_params['save_to'] + "/summary.txt"
@@ -709,10 +696,8 @@ def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[st
         opt_params (Dict): A dictionary of settings including sample locations if desired
     """
 
-    # Save the first plot as a PNG file
-    fig1.savefig("plot1.png", dpi=500, bbox_inches='tight')
-    # Save the second plot as a PNG file
-    fig2.savefig("plot2.png", dpi=500, bbox_inches='tight')
+    fig1.savefig("plot1.png", dpi=500, bbox_inches='tight')  # Save the first plot as a PNG file
+    fig2.savefig("plot2.png", dpi=500, bbox_inches='tight')  # Save the second plot as a PNG file
     
     # Open the saved PNG files using PIL
     img1 = Image.open("plot1.png")
@@ -724,12 +709,13 @@ def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[st
 
     left, upper, right, lower = bbox
     padded_bbox = (
-        max(0, left - opt_params['outer_pad']),                 # Left
-        max(0, upper - opt_params['outer_pad']),                # Upper
-        min(img1.width, right + opt_params['outer_pad']),        # Right
-        min(img1.height, lower + opt_params['outer_pad'])        # Lower
+        max(0, left - opt_params['outer_pad']),            # Left
+        max(0, upper - opt_params['outer_pad']),           # Upper
+        min(img1.width, right + opt_params['outer_pad']),  # Right
+        min(img1.height, lower + opt_params['outer_pad'])  # Lower
     )
 
+    # Crop image
     img1 = img1.crop(padded_bbox)
     
     # Get the width and height of each image
@@ -783,12 +769,16 @@ def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
     Args:
         opt_params (Dict): A dictionary of settings
     """
-    parsed_config     = parse_namelist(opt_params=opt_params)
-    parsed_turbine    = parse_turbine_properties(opt_params=opt_params)
-    parsed_location   = parse_turbine_location(opt_params=opt_params)
 
+    # Parse setting files
+    parsed_config   = parse_namelist(opt_params=opt_params)
+    parsed_turbine  = parse_turbine_properties(opt_params=opt_params)
+    parsed_location = parse_turbine_location(opt_params=opt_params)
+
+    # Extract and format relevant variables in namedtuples
     namelist, turbine = load_variables(parsed_config=parsed_config, parsed_location=parsed_location, parsed_turbine=parsed_turbine)
 
+    # Generate domain plots
     out_fig = plot_outer_domain(namelist=namelist, turbine=turbine, opt_params=opt_params)
     in_fig  = plot_inner_domain(namelist=namelist, turbine=turbine, opt_params=opt_params)
 
@@ -801,6 +791,7 @@ def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
     if 'save_both' in opt_params and opt_params['save_both']:
         combine_domain_plots(fig1=out_fig, fig2=in_fig, opt_params=opt_params)
 
+    # Generate simulation summary table
     summary_table(namelist=namelist, turbine=turbine, opt_params=opt_params)
 
     return namelist, turbine
