@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import platform
 import subprocess
@@ -329,7 +328,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
 
     plt.show()
 
-def setup_sweep(params: Dict[str, Any], console, header, model) -> bool:
+def setup(params: Dict[str, Any], console, header, model) -> bool:
 
     combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
 
