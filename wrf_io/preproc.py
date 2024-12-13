@@ -503,7 +503,7 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
 
     return fig
 
-def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, Any]):
+def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, Any]) -> None:
     """
     Generates a summary table of relevant parameters and indicates and obvious issues.
 
@@ -691,7 +691,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     with open(output_filename, "w") as file:
         file.write(table_text)
 
-def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[str, Any]):
+def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[str, Any]) -> None:
     """
     Combines the outer domain and inner domain images into a single image for easy of inspection.
 
