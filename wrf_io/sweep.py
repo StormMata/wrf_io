@@ -14,6 +14,8 @@ from rich.console import Console
 from typing import Dict, Any, List, Tuple
 
 
+
+
 def summary_table(params: dict) -> None:
     """
     Generate summary table and print to screen.
@@ -328,9 +330,24 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
 
     plt.show()
 
-def setup(params: Dict[str, Any], console, header, model) -> bool:
+def get_combinations(params: Dict[str, Any]) -> list:
+    """
+    Get the full list of shear/veer combinations as a list for iterating over
+    
+    Args:
+        params (Dict): A dictionary of discrete shear and veer values and excluded pairs if necessary
+    
+    Returns:
+        list: a list of combinations
+    """
 
     combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
+
+    return combinations
+
+def setup(params: Dict[str, Any], console, header, model) -> bool:
+
+    combinations = get_combinations(params=params)
 
     int_digits, frac_digits = determine_format(params['shear'], params['veer'])
 

@@ -1,12 +1,16 @@
-import gc
+import time
 import os
 import wrf
+import glob
 import netCDF4
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from multiprocessing import Pool
+from rich.console import Console
 import matplotlib.ticker as mticker
 from matplotlib.gridspec import GridSpec
+from typing import Dict, Any
 
 
 def convergence():
@@ -163,3 +167,50 @@ def convergence():
         plt.setp(ax9.get_xticklabels(), visible=False)
 
         plt.savefig(f"/anvil/scratch/x-smata/wrf_les_sweep/iea15MW_validation/gad_sweep/power_convergence/convergence_{case}.png", bbox_inches="tight", dpi=600)  
+
+def parallel_process_function(file):
+
+    for i in range(1, 101):
+        time.sleep(0.01)
+
+    return True
+
+def parproc(processes: int, params: Dict[str, Any]) -> None:
+    """
+    Processes the WRF output files in parallel
+
+    Args:
+        processes (int): The number of parallel processes to use
+        opt_params (Dict): A dictionary of settings including sample locations if desired
+    """
+
+    filelist = sorted(glob.glob(params['output_top_dir'] + '/*/wrfout_d02_0001-01-01_00_00_00'))
+
+    console = Console()
+
+    output_lines = []
+    output_lines.append('Preparing to process these files:\n')
+
+    # Print files to be processed
+    for i in range(len(filelist)):
+        # Extract the part after 's<digit>_v<something>/', dynamically
+        prefix = filelist[i].split('/')[-2]  # Get the second-to-last part
+        output_lines.append(f"{i+1:2}. {prefix}/{os.path.basename(filelist[i]).split(prefix)[-1]}")
+
+    console.print("\n".join(output_lines), highlight=False)
+    console.print(f"Processing WRF outputs with [bold][bright_red]{processes}[/bright_red][/bold] parallel processes...")
+
+    # Process the files
+    start_time = time.time()
+    
+    # Parallel pool
+    with Pool(processes) as pool:
+        pool.map(parallel_process_function, filelist)
+
+    end_time = time.time()
+
+    elapsed_time = end_time - start_time
+    minutes = int(elapsed_time // 60)
+    seconds = int(elapsed_time % 60)
+
+    console.print(f"Finished in [bold][green3]{minutes}[/green3][/bold] min and [bold][green3]{seconds}[/green3][/bold] sec.")
