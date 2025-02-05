@@ -452,18 +452,18 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     low_x = np.searchsorted(x_pos_array, turbine.turb_x, side='left') - 1
     low_y = np.searchsorted(y_pos_array, turbine.turb_y, side='right') - 2
 
-    print(low_x)
+    # print(low_x)
 
     low_x = low_x if low_x > 0 else 0
     low_y = low_y if low_y > 0 else 0
 
-    print(low_x)
+    # print(low_x)
 
     x_pos_array = x_pos_array - x_pos_array[0]
 
-    print(low_x)
+    # print(low_x)
 
-    print(x_pos_array[low_x])
+    # print(x_pos_array[low_x])
 
     # Create the rectangle patch
     rectangle = Rectangle(
