@@ -452,18 +452,18 @@ def plot_inner_domain(namelist: Namelist, turbine: Turbine, opt_params: Dict[str
     low_x = np.searchsorted(x_pos_array, turbine.turb_x, side='left') - 1
     low_y = np.searchsorted(y_pos_array, turbine.turb_y, side='right') - 2
 
-    print(low_x)
+    # print(low_x)
 
     low_x = low_x if low_x > 0 else 0
     low_y = low_y if low_y > 0 else 0
 
-    print(low_x)
+    # print(low_x)
 
     x_pos_array = x_pos_array - x_pos_array[0]
 
-    print(low_x)
+    # print(low_x)
 
-    print(x_pos_array[low_x])
+    # print(x_pos_array[low_x])
 
     # Create the rectangle patch
     rectangle = Rectangle(
@@ -782,18 +782,25 @@ def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
     Args:
         opt_params (Dict): A dictionary of settings
     """
+    # print('Point 3')
 
     # Parse setting files
     parsed_config   = parse_namelist(opt_params=opt_params)
     parsed_turbine  = parse_turbine_properties(opt_params=opt_params)
     parsed_location = parse_turbine_location(opt_params=opt_params)
 
+    # print('Point 4')
+
     # Extract and format relevant variables in namedtuples
     namelist, turbine = load_variables(parsed_config=parsed_config, parsed_location=parsed_location, parsed_turbine=parsed_turbine)
+
+    # print('Point 5')
 
     # Generate domain plots
     out_fig = plot_outer_domain(namelist=namelist, turbine=turbine, opt_params=opt_params)
     in_fig  = plot_inner_domain(namelist=namelist, turbine=turbine, opt_params=opt_params)
+
+    # print('Point 6')
 
     if 'save_outer' in opt_params and opt_params['save_outer']:
         out_fig.savefig(opt_params['save_to'] + '/outer.png', dpi=500, bbox_inches='tight', pad_inches=0.05)
@@ -803,6 +810,8 @@ def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
 
     if 'save_both' in opt_params and opt_params['save_both']:
         combine_domain_plots(fig1=out_fig, fig2=in_fig, opt_params=opt_params)
+
+    # print('Point 7')
 
     # Generate simulation summary table
     summary_table(namelist=namelist, turbine=turbine, opt_params=opt_params)
