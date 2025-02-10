@@ -22,7 +22,7 @@ Namelist = namedtuple('Namelist', [
     'outer_dx', 'outer_dy', 'inner_dx', 'inner_dy', 'outer_e_we', 'outer_e_sn',
     'ztop', 'inner_e_we', 'inner_e_sn', 'e_vert', 'i_parent_start',
     'j_parent_start', 'parent_grd_rat', 'time_step_rat', 'nproc_x', 'nproc_y',
-    'nSections', 'nElements'
+    'nSections', 'nElements', 'nSeries'
 ])
 
 Turbine = namedtuple('Turbine', [
@@ -197,7 +197,8 @@ def load_variables(parsed_config: Dict[str, Any], parsed_turbine: Dict[str, Any]
         nproc_y        = parsed_config['domains'].get('nproc_y', None),
 
         nSections      = int(parsed_config['physics'].get('wind_wtp_nSections', None)),
-        nElements      = int(parsed_config['physics'].get('wind_wtp_nElements', None))
+        nElements      = int(parsed_config['physics'].get('wind_wtp_nElements', None)),
+        nSeries        = int(parsed_config['physics'].get('wind_wtp_nSeries', None)),
     )
 
     # Extract variables for the turbine
@@ -615,6 +616,11 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         table.add_row("Elements", f"{namelist.nElements:.0f}", f">{nElmin:.0f}")
     else:
         table.add_row("Elements", f"{namelist.nElements:.0f}", "")
+    table.add_row("", "", "")
+    if (namelist.nSeries !=  namelist.nSections * namelist.nElements):
+        table.add_row("nSeries", f"{namelist.nSeries:.0f}", f"{(namelist.nSections * namelist.nElements):.0f}")
+    else:
+        table.add_row("nSeries", f"{namelist.nSeries:.0f}", "")
     table.add_row("", "", "")
     if (turbine.inflow_loc < (turbine.turb_diameter*3)):
         table.add_row("V0 location", f"{(turbine.inflow_loc/turbine.turb_diameter):.1f} x D", ">3D", end_section=True)
