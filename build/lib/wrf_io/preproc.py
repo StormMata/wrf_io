@@ -793,18 +793,25 @@ def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
     Args:
         opt_params (Dict): A dictionary of settings
     """
+    # print('Point 3')
 
     # Parse setting files
     parsed_config   = parse_namelist(opt_params=opt_params)
     parsed_turbine  = parse_turbine_properties(opt_params=opt_params)
     parsed_location = parse_turbine_location(opt_params=opt_params)
 
+    # print('Point 4')
+
     # Extract and format relevant variables in namedtuples
     namelist, turbine = load_variables(parsed_config=parsed_config, parsed_location=parsed_location, parsed_turbine=parsed_turbine)
+
+    # print('Point 5')
 
     # Generate domain plots
     out_fig = plot_outer_domain(namelist=namelist, turbine=turbine, opt_params=opt_params)
     in_fig  = plot_inner_domain(namelist=namelist, turbine=turbine, opt_params=opt_params)
+
+    # print('Point 6')
 
     if 'save_outer' in opt_params and opt_params['save_outer']:
         out_fig.savefig(opt_params['save_to'] + '/outer.png', dpi=500, bbox_inches='tight', pad_inches=0.05)
@@ -814,6 +821,8 @@ def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
 
     if 'save_both' in opt_params and opt_params['save_both']:
         combine_domain_plots(fig1=out_fig, fig2=in_fig, opt_params=opt_params)
+
+    # print('Point 7')
 
     # Generate simulation summary table
     summary_table(namelist=namelist, turbine=turbine, opt_params=opt_params)
