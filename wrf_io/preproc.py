@@ -21,7 +21,8 @@ Namelist = namedtuple('Namelist', [
     'run_days', 'run_hrs', 'run_mins', 'run_secs', 'time_step',
     'outer_dx', 'outer_dy', 'inner_dx', 'inner_dy', 'outer_e_we', 'outer_e_sn',
     'ztop', 'inner_e_we', 'inner_e_sn', 'e_vert', 'i_parent_start',
-    'j_parent_start', 'time_step_rat', 'nproc_x', 'nproc_y', 'nSections', 'nElements'
+    'j_parent_start', 'parent_grd_rat', 'time_step_rat', 'nproc_x', 'nproc_y',
+    'nSections', 'nElements'
 ])
 
 Turbine = namedtuple('Turbine', [
@@ -189,6 +190,7 @@ def load_variables(parsed_config: Dict[str, Any], parsed_turbine: Dict[str, Any]
         i_parent_start = int(parsed_config['domains'].get('i_parent_start', None)[1]),
         j_parent_start = int(parsed_config['domains'].get('j_parent_start', None)[1]),
 
+        parent_grd_rat = int(parsed_config['domains'].get('parent_grid_ratio', None)[1]),
         time_step_rat  = int(parsed_config['domains'].get('parent_time_step_ratio', None)[1]),
 
         nproc_x        = parsed_config['domains'].get('nproc_x', None),
@@ -669,6 +671,15 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         table.add_row("Inner cell width in y", f"{np.floor(namelist.inner_e_sn / rows):.0f}", f">10")
     else:
         table.add_row("Inner cell width in y", f"{np.floor(namelist.inner_e_sn / rows):.0f}", "")
+    table.add_row("", "", "")
+    if (np.mod(namelist.inner_e_we - 1, namelist.parent_grd_rat) != 0):
+        table.add_row(f"MOD({namelist.inner_e_we} - 1, {namelist.parent_grd_rat})", f"{(np.mod(namelist.inner_e_we - 1, namelist.parent_grd_rat)):.0f}", f"{(np.mod(namelist.inner_e_we - 1, namelist.parent_grd_rat)):.0f} != 0")
+    else:
+        table.add_row(f"MOD({namelist.inner_e_we} - 1, {namelist.parent_grd_rat})", f"{(np.mod(namelist.inner_e_we - 1, namelist.parent_grd_rat)):.0f}", "")
+    if (np.mod(namelist.inner_e_sn - 1, namelist.parent_grd_rat) != 0):
+        table.add_row(f"MOD({namelist.inner_e_sn} - 1, {namelist.parent_grd_rat})", f"{(np.mod(namelist.inner_e_sn - 1, namelist.parent_grd_rat)):.0f}", f"{(np.mod(namelist.inner_e_sn - 1, namelist.parent_grd_rat)):.0f} != 0")
+    else:
+        table.add_row(f"MOD({namelist.inner_e_sn} - 1, {namelist.parent_grd_rat})", f"{(np.mod(namelist.inner_e_sn - 1, namelist.parent_grd_rat)):.0f}", "")
     table.add_row("", "", "")
     y_pos_array = np.array(y_pos_array)
     less_than_inflow = (y_pos_array[y_pos_array < turbine.turb_y])[-2]
