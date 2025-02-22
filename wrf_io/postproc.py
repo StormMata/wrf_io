@@ -6,12 +6,14 @@ import glob
 import netCDF4
 import numpy as np
 import pandas as pd
+from pathlib import Path
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from rich.console import Console
 import matplotlib.ticker as mticker
 from matplotlib.gridspec import GridSpec
 from typing import Dict, Any
+from numpy.typing import ArrayLike
 from . import preproc
 
 
@@ -804,11 +806,6 @@ def parallel_process_function(file):
     del var_holder
 
 
-
-
-
-
-
 def parproc(processes: int, params: Dict[str, Any]) -> None:
     """
     Processes the WRF output files in parallel
@@ -848,3 +845,69 @@ def parproc(processes: int, params: Dict[str, Any]) -> None:
     seconds = int(elapsed_time % 60)
 
     console.print(f"Finished in [bold][green3]{minutes}[/green3][/bold] min and [bold][green3]{seconds}[/green3][/bold] sec.")
+
+def annulus_average(f: ArrayLike, theta: ArrayLike) -> ArrayLike:
+    """
+    Compute annulus average of spatial quantity f(r,theta) over rotor
+
+    Args:
+        f (ArrayLike): Spatial quantity
+        theta (ArrayLike): Azimuthal locations over which to average
+    """
+
+    X_azim = 1 / (2 * np.pi) * np.trapz(f, theta, axis=-1)
+
+    return X_azim
+
+def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> ArrayLike:
+    """
+    Compute rotor average of spatial quantity f(r,theta) over rotor
+
+    Args:
+        f (ArrayLike): Spatial quantity
+        r (ArrayLike): Radial points over rotor
+        theta (ArrayLike): Azimuthal points over rotor
+    """
+
+    X_azim = 1 / (2 * np.pi) * np.trapz(f, theta, axis=-1)
+
+    X_rotor = 2 * np.trapz(X_azim * r, r)
+
+    return X_rotor
+
+def per_error(A: float, E: float) -> float:
+    """
+    Returns the error between from reference value A and another value E
+
+    Args:
+        A (float): Comparison value
+        E (float): Reference value
+    """
+
+    error = ((A - E) / E) * 100
+
+    return error
+
+def extract_sounding(file_list: list[str]) -> Dict[float, Any]:
+    """
+    Extracts u and v velocity components from wrf sounding file
+
+    Args:
+        file_list (list): List of file paths to sounding files
+    """
+
+    data_dict = {}
+
+    i = 0
+    
+    for file in file_list:
+        with open(file, 'r') as f:
+            lines = f.readlines()
+            
+            # Skip the header line and extract columns 1, 4, and 5
+            data = np.loadtxt(lines[1:])[:, [0, 3, 4]]
+
+            key = Path(file).parent.name
+            data_dict[key] = data
+    
+    return data_dict
