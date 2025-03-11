@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 from io import StringIO
+from wrf_io import sweep
+from rich.text import Text
 from rich.table import Table
 from scipy import interpolate
 from rich.console import Console
@@ -696,8 +698,26 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         table.add_row("Rotor contained in pool?", "Yes", "", end_section=True)
 
     #INFLOW
-    table.add_row("[bold underline]INFLOW[/bold underline]", "", "")
-    table.add_row("", "", "", end_section=True)
+    if 'prof_type' in opt_params and opt_params['prof_type']=='Idealized':
+
+        combs = sweep.get_combinations(opt_params)
+
+        table.add_row("[bold underline]INFLOW[/bold underline]", "", "")
+        table.add_row("", "", "")
+        table.add_row("Profile type", f"{opt_params['prof_type']}", "")
+        table.add_row("", "", "")
+        table.add_row("Total cases", f"{len(combs)}", "")
+        table.add_row("", "", "")
+        if opt_params['shear_type']=='Rate':
+            table.add_row(Text("[shear, veer]"), "Rate [(unit)/m]", "")
+        elif opt_params['shear_type']=='Total':
+            table.add_row(Text("[shear, veer]"), "Total [(unit)]", "")
+        else:
+            table.add_row(Text("[shear, veer]"), "Unspecified type", "")
+        table.add_row("", "", "")
+        for i in range(len(combs)):
+            table.add_row("", f"[{combs[i][0]},{combs[i][1]}]", "")
+        table.add_row("", "", "", end_section=True)
 
     # Print the table to the console
     if 'print_table' in opt_params and opt_params['print_table']:
