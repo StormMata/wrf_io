@@ -6,14 +6,12 @@ import numpy as np
 import scipy.signal as signal
 import matplotlib.pyplot as plt
 
-from wrf_io import preproc
 from rich.live import Live
+from wrf_io import preproc
 from rich.table import Table
 from itertools import product
 from rich.console import Console
 from typing import Dict, Any, List, Tuple
-
-
 
 
 def summary_table(params: dict) -> None:
