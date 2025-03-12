@@ -23,11 +23,15 @@ jobs:
           channels: conda-forge,defaults
           auto-activate-base: false
           miniforge-variant: Mambaforge
-      
-      - name: Install dependencies
-        shell: bash -l {0}
+
+      - name: Create and activate the environment
         run: |
-          mamba install -y wrf-python numpy scipy pandas matplotlib netCDF4 rich pillow pytest
-          
+          mamba create -y -n test-env wrf-python numpy scipy pandas matplotlib netCDF4 rich pillow pytest
+          conda activate test-env
+
+      - name: Install any additional dependencies
+        run: |
+          pip install -r requirements.txt  # Add this if you have other pip dependencies
+
       - name: Run Tests
         run: pytest --maxfail=1 --disable-warnings -v
