@@ -4,5 +4,3 @@ pandas
 netCDF4
 rich
 Pillow
-glob2
-pytest

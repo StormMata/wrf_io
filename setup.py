@@ -12,7 +12,7 @@ setup(
         "scipy",
         "pandas",
         "netCDF4",  
-        "wrf-python",
+        # "wrf-python",
         "rich",
         "Pillow",
         "glob2",

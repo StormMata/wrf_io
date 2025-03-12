@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main  # Run tests on push to main
+      - dev   # Run tests on push to dev branch (optional)
   pull_request:
     branches:
       - main  # Run tests on PRs to main
@@ -16,22 +17,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+      - name: Set Up Python
+        uses: actions/setup-python@v5
         with:
-          activate-environment: test-env
-          channels: conda-forge,defaults
-          auto-activate-base: false
-          miniforge-variant: Mambaforge
+          python-version: "3.12"
 
-      - name: Create and activate the environment
+      - name: Install Dependencies
         run: |
-          mamba create -y -n test-env wrf-python numpy scipy pandas matplotlib netCDF4 rich pillow pytest
-          conda activate test-env
-
-      # - name: Install any additional dependencies
-      #   run: |
-      #     pip install -r requirements.txt  # Add this if you have other pip dependencies
+          python -m pip install --upgrade pip
+          pip install pytest
+          pip install -r requirements.txt  # Ensure this file lists all dependencies
 
       - name: Run Tests
         run: pytest --maxfail=1 --disable-warnings -v
