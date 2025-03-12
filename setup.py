@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name='wrf_io',
     packages=find_packages(include=['wrf_io']),
-    version='1.0.0',
+    version='1.1.0',
     description='Pre and post-processing for WRF',
     author='Storm Mata',
     install_requires=[
@@ -12,12 +12,12 @@ setup(
         "scipy",
         "pandas",
         "netCDF4",  
-        # "wrf",
+        "wrf-python",
         "rich",
         "Pillow",
         "glob2",
-    ]
-    # setup_requires=['pytest-runner'],
-    # tests_require=['pytest==4.4.1'],
-    # test_suite='tests',
+    ],
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest==4.4.1'],
+    test_suite='tests',
 )

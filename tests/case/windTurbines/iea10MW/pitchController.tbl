@@ -1,0 +1,7 @@
+10.000     "RateLimitBladePitch [deg/s]"
+0.000     "PitchMin [deg]"
+90.000    "PitchMax [deg]"
+11.79164  "PitchK [deg]"
+1.125350 "PitchControlKP [s]"   ! do not forget to multiply the gains from rosco (or gains defined in NREL 5MW reference WT documentation for NREL 5MW only) by gearbox ratio!
+0.123086 "PitchControlKI [-]"   ! do not forget to multiply the gains from rosco (or gains defined in NREL 5MW reference WT documentation for NREL 5MW only) by gearbox ratio!
+0.000     "PitchControlKD [s^2]" ! do not forget to multiply the gains from rosco (or gains defined in NREL 5MW reference WT documentation for NREL 5MW only) by gearbox ratio!

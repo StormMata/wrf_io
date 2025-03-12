@@ -1,0 +1,10 @@
+numpy
+matplotlib
+scipy
+pandas
+netCDF4
+rich
+Pillow
+glob2
+pytest
+wrf-python

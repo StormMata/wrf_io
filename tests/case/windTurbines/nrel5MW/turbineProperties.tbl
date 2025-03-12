@@ -1,0 +1,42 @@
+17       "Length of the blade element vector [-]"
+8        "Number of airfoils [-]"
+3        "Number of blades [-]"
+378.00   "Hub height [m]"
+5.00     "Tower diameter [m]"
+126.00   "Rotor diameter [m]"
+3.00     "Hub diameter [m]"
+8.00     "Nacelle length [m]"
+1.00     "Nacelle drag coefficient [-]"
+1.20     "Tower drag coefficient [-]"
+5.01910  "OverHang [m]"
+0.0      "UndSling [m]"
+0.944    "Electrical efficiency of the generator [-]"
+5.00     "Delta (Turbine tilt) [deg]"
+2.50     "Zeta (Blade precone) [deg]"
+1        "Rotation direction [-], 1: clockwise, -1: counter-clockwise, 0: no rotational effects (GAD/GADrs; only for experimental use)"
+0.77     "CT, Constant thrust coefficient for GAD/GADrs. It should be applied when rotational effects are neglected. E.g., CT=0.77 for Uinf=8.0 m s-1. Only for experimental use."
+2.00     "blade_c_eps_1 [-], x or chord-wise"
+2.00     "blade_c_eps_2 [-], y or thickness-wise"
+2.00     "blade_c_eps_3 [-], z or radial-wise"
+2.00     "nacelle_c_eps [-]"
+2.00     "tower_c_eps [-]"
+378.00   "Inflow location [m]"
+0.5      "Yaw rate [deg/s]"
+1000.00  "Yaw error threshold [(deg)^2*(seconds)]
+ 2.8667	 3.542	1.000  13.308  "Cylinder1"  1  "r [m]" "Chord [m]" "Thickness [% of chord]" "Twist angle (gamma) [deg]" "Airfoil name [-]" "Airfoil ID [-]"
+ 5.6000	 3.854	1.000  13.308  "Cylinder1"  1
+ 8.3333	 4.167	1.000  13.308  "Cylinder2"  2
+11.7500	 4.557	0.400  13.308  "DU40_A17"   3
+15.8500	 4.652	0.350  11.480  "DU35_A17"   4
+19.9500	 4.458	0.350  10.162  "DU35_A17"   4
+24.0500	 4.249	0.300   9.011  "DU30_A17"   5
+28.1500	 4.007	0.250   7.795  "DU25_A17"   6
+32.2500	 3.748	0.250   6.544  "DU25_A17"   6
+36.3500	 3.502	0.210   5.361  "DU21_A17"   7
+40.4500	 3.256	0.210   4.188  "DU21_A17"   7
+44.5500	 3.010	0.180   3.125  "NA64_A17"   8
+48.6500	 2.764	0.180   2.319  "NA64_A17"   8
+52.7500	 2.518	0.180   1.526  "NA64_A17"   8
+56.1667	 2.313	0.180   0.863  "NA64_A17"   8
+58.9000	 2.086	0.180   0.370  "NA64_A17"   8
+61.6333	 1.419	0.180   0.106  "NA64_A17"   8

@@ -1,0 +1,132 @@
+#!/bin/bash -l
+
+NPROCS=""
+TESTCASE=""
+LOGFILE1="log.les"
+LOGFILE2="log.wrf"
+
+SEND_EMAIL=false
+EMAIL=baris.kale@vki.ac.be
+
+exit_abnormal()
+{ # Function: Exit with error.
+  usage
+  exit 0
+}
+
+usage()
+{ # Function: Print a help message.
+  echo -e "Usage: ./autorun_wrf.sh [ -n | simulationname] [ -p | numberofprocessors ]" 1>&2
+  echo -e "Usage: ./autorun_wrf.sh -n simulation -p 4" 1>&2
+
+}
+
+while getopts ":n:p:" options; do
+  case "${options}" in                    #
+    n)                                    # If the option is n,
+      TESTCASE=${OPTARG}                  # set $TESTCASE to specified value.
+      ;;
+    p)                                    # If the option is t,
+      NPROCS=${OPTARG}                    # Set $NPROCS to specified value.
+      re_isanum='^[0-9]+$'                # Regex: match whole numbers only
+      if ! [[ $NPROCS =~ $re_isanum ]] ; then   # if $NPROCS not whole:
+        echo -e "Error: NPROCS must be a positive, whole number."
+        exit_abnormal
+      elif [ $NPROCS -eq "0" ]; then      # If it's zero:
+        echo -e "Error: NPROCS must be greater than zero."
+        exit_abnormal                     # Exit abnormally.
+      fi
+      ;;
+    :)                                    # If expected argument omitted:
+      echo -e "Error: -${OPTARG} requires an argument."
+      exit_abnormal                       # Exit abnormally.
+      ;;
+    *)                                    # If unknown (any other) option:
+      exit_abnormal                       # Exit abnormally.
+      ;;
+  esac
+done
+
+if [[ -z ${NPROCS} ]]; then
+    exit_abnormal
+fi
+
+LIBDIR="/zfs60/nobackup/kale/libraries"
+export PATH="$LIBDIR/bin:$PATH"
+export LD_LIBRARY_PATH="$LIBDIR/lib:$LD_LIBRARY_PATH"
+export NETCDF="$LIBDIR"
+export PNETCDF="$LIBDIR"
+export PHDF5="$LIBDIR"
+export HDF5="$LIBDIR"
+export ZLIB="$LIBDIR"
+export JASPERLIB="$LIBDIR/lib"
+export JASPERINC="$LIBDIR/include"
+export ADIOS2="$LIBDIR"
+
+# unlimit stack size
+ulimit unlimited
+#ulimit -c unlimited
+ulimit -s unlimited
+
+# load modulues
+# module load mpi/openmpi-x86_64
+
+MPIRUN=$(which mpirun)
+export OPENMPI_ROOT=$(dirname ${MPIRUN} | sed -e 's_/bin__g')
+#MPI_OPTS="--bind-to core --map-by l3cache"
+MPI_OPTS="--bind-to core --report-bindings --map-by L3cache -x OMPI_MCA_memory_linux_disable=1 -x MALLOC_MMAP_MAX_=0 -x MALLOC_TRIM_THRESHOLD_=-1 --mca mpi_paffinity_alone 1"
+echo "Using ${MPIRUN}"
+
+SIM_START=$(($(date +%s)+7200))
+
+echo -e "Executing ./real.exe ..."
+        ${MPIRUN} -np ${NPROCS} ${MPI_OPTS} ./ideal.exe >& ${LOGFILE1}
+        wait
+echo -e "Done. \n"
+        sleep 0.5
+
+SIM_END=$(($(date +%s)+7200))
+
+SIM_TIME=$((SIM_END-SIM_START))
+
+echo "" >> ${LOGFILE1}
+echo "================================================" >> ${LOGFILE1}
+echo "simulation name      : ${TESTCASE}" >> ${LOGFILE1}
+echo "simulation started   : "`date '+%d-%m-%Y %H:%M:%S' -ud @${SIM_START}` >> ${LOGFILE1}
+echo "simulation completed : "`date '+%d-%m-%Y %H:%M:%S' -ud @${SIM_END}` >> ${LOGFILE1}
+echo "simulation time      : "$(($(date -d@${SIM_TIME} -u +%d)-1)) "days" $(date '+%H:%M:%S' -ud@${SIM_TIME}) "[HH:MM:SS]" >> ${LOGFILE1}
+echo "================================================" >> ${LOGFILE1}
+
+SIM_START=$(($(date +%s)+7200))
+
+echo -e "Executing ./wrf.exe ..."
+        ${MPIRUN} -np ${NPROCS} ${MPI_OPTS} ./wrf.exe >& ${LOGFILE2}
+
+SIM_END=$(($(date +%s)+7200))
+
+SIM_TIME=$((SIM_END-SIM_START))
+
+echo "" >> ${LOGFILE2}
+echo "================================================" >> ${LOGFILE2}
+echo "simulation name      : ${TESTCASE}" >> ${LOGFILE2}
+echo "simulation started   : "`date '+%d-%m-%Y %H:%M:%S' -ud @${SIM_START}` >> ${LOGFILE2}
+echo "simulation completed : "`date '+%d-%m-%Y %H:%M:%S' -ud @${SIM_END}` >> ${LOGFILE2}
+echo "simulation time      : "$(($(date -d@${SIM_TIME} -u +%d)-1)) "days" $(date '+%H:%M:%S' -ud@${SIM_TIME}) "[HH:MM:SS]" >> ${LOGFILE2}
+echo "================================================" >> ${LOGFILE2}
+
+if [[ $SEND_EMAIL == true ]]; then
+        EMAIL_ADDRESS=${EMAIL}
+        EMAIL_SUBJECT="DO NOT REPLY"
+        EMAIL_BODY="Process done. Automatic email sent via bash script."
+
+        command;
+        ( 
+	echo -e $EMAIL_BODY
+        echo -e "================================================"
+	echo -e "simulation name      : ${TESTCASE}"
+        echo -e "simulation started   : "`date '+%d-%m-%Y %H:%M:%S' -ud @${SIM_START}`
+        echo -e "simulation completed : "`date '+%d-%m-%Y %H:%M:%S' -ud @${SIM_END}`
+        echo -e "simulation time      : "$(($(date -d@${SIM_TIME} -u +%d)-1)) "days" $(date '+%H:%M:%S' -ud@${SIM_TIME}) "[HH:MM:SS]"
+        echo -e "================================================"
+        ) | mail -s "$EMAIL_SUBJECT" $EMAIL_ADDRESS
+fi

@@ -1,0 +1,46 @@
+21       "Length of the blade element vector [-]"
+6        "Number of airfoils [-]"
+3        "Number of blades [-]"
+78.00    "Hub height [m]"
+5.00     "Tower diameter [m]"
+80.00    "Rotor diameter [m]"
+3.30     "Hub diameter [m]"
+10.40    "Nacelle length [m]"
+1.00     "Nacelle drag coefficient [-]"
+1.20     "Tower drag coefficient [-]"
+4.44     "OverHang [m]"
+0.0      "UndSling [m]"
+0.965    "Electrical efficiency of the generator [-]"
+6.00     "Delta (Turbine tilt) [deg]"
+2.00     "Zeta (Blade precone) [deg]"
+1        "Rotation direction [-], 1: clockwise, -1: counter-clockwise, 0: no rotational effects (GAD/GADrs; only for experimental use)"
+0.77     "CT, Constant thrust coefficient for GAD/GADrs. It should be applied when rotational effects are neglected. E.g., CT=0.77 for Uinf=8.0 m s-1. Only for experimental use."
+2.00     "blade_c_eps_1 [-], x or chord-wise"
+2.00     "blade_c_eps_2 [-], y or thickness-wise"
+2.00     "blade_c_eps_3 [-], z or radial-wise"
+2.00     "nacelle_c_eps [-]"
+2.00     "tower_c_eps [-]"
+80.00    "Inflow location [m]"
+0.5      "Yaw rate [deg/s]"
+1000.00  "Yaw error threshold [(deg)^2*(seconds)]
+ 2.5631 2.004 1.000  9.500  "Cylinder1"    1  "r [m]" "Chord [m]" "Thickness [% of chord]" "Twist angle (gamma) [deg]" "Airfoil name [-]" "Airfoil ID [-]"
+ 4.3893 2.523 1.000  9.500  "Cylinder1"    1
+ 6.2155 3.015 1.000  9.500  "FFA_W3-301"   2
+ 8.0417 3.278 0.300  9.500  "FFA_W3-301"   2
+ 9.8679 3.309 0.300  9.500  "FFA_W3-301"   2
+11.6940 3.195 0.300  9.500  "FFA_W3-301"   2
+13.5202 3.039 0.300  9.218  "FFA_W3-241"   3
+15.3464 2.863 0.240  7.810  "FFA_W3-211"   4
+17.1726 2.687 0.240  6.401  "FFA_W3-211"   4
+18.9988 2.511 0.240  5.113  "FFA_W3-211"   4
+20.8250 2.334 0.240  3.828  "FFA_W3-211"   4
+22.6512 2.158 0.210  2.613  "NACA_63-221"  5
+24.4774 1.982 0.210  1.482  "NACA_63-221"  5
+26.3036 1.806 0.210  0.417  "NACA_63-221"  5
+28.1298 1.630 0.210 -0.494  "NACA_63-221"  5
+29.9560 1.454 0.180 -1.233  "NACA_63-218"  6
+31.7821 1.278 0.180 -1.792  "NACA_63-218"  6
+33.6083 1.102 0.180 -2.244  "NACA_63-218"  6
+35.4345 0.926 0.180 -2.611  "NACA_63-218"  6
+37.2607 0.749 0.180 -2.835  "NACA_63-218"  6
+39.0869 0.573 0.180 -2.971  "NACA_63-218"  6
