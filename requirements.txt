@@ -1,4 +1,3 @@
-numpy
 matplotlib
 scipy
 pandas
@@ -7,4 +6,3 @@ rich
 Pillow
 glob2
 pytest
-wrf-python
