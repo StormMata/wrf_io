@@ -29,9 +29,9 @@ jobs:
           mamba create -y -n test-env wrf-python numpy scipy pandas matplotlib netCDF4 rich pillow pytest
           conda activate test-env
 
-      - name: Install any additional dependencies
-        run: |
-          pip install -r requirements.txt  # Add this if you have other pip dependencies
+      # - name: Install any additional dependencies
+      #   run: |
+      #     pip install -r requirements.txt  # Add this if you have other pip dependencies
 
       - name: Run Tests
         run: pytest --maxfail=1 --disable-warnings -v
