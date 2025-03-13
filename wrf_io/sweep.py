@@ -273,7 +273,10 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     else:
         raise RuntimeError("LaTeX not found. Ensure it is installed and in the system path.")
 
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams.update({
+        'text.usetex': True,
+        'text.latex.preamble': r'\usepackage{amsfonts}'
+    })
     
     fig, axs = plt.subplots(
         nrows = 2,
@@ -394,10 +397,9 @@ def setup(params: Dict[str, Any], model) -> bool:
 
     # Check if the top directory already exists
     top_dir = f"{params['base_dir']}/{model}"
-    # if os.path.exists(top_dir):
-    #     with Live(console=console) as live:
-    #         live.update(f"{header} Skipped, already exists.")
-    #     return False 
+    if os.path.exists(top_dir):
+        print(f"Directory already exists.")
+        return False 
     
     # Make top directory
     os.makedirs(f"{params['base_dir']}/{model}/figs", exist_ok=False)
