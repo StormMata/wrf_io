@@ -392,6 +392,8 @@ def setup(params: Dict[str, Any], model) -> bool:
 
     formats = determine_format(combinations)
 
+    model = params['rotor_model'].lower() + f'_sweep'
+
     # Initialize the success flag
     success = True
 
@@ -404,11 +406,8 @@ def setup(params: Dict[str, Any], model) -> bool:
     # Make top directory
     os.makedirs(f"{params['base_dir']}/{model}/figs", exist_ok=False)
 
-    # Clip model string for further use
-    model_str = model.split('_')[0].lower()
-
     # Create batch submit file if requested
-    batch_file_path = f"{params['base_dir']}/submit_group_{model_str}.sh"
+    batch_file_path = f"{params['base_dir']}/submit_group_{model}.sh"
 
     if params['batch_submit']:
         with open(batch_file_path, 'w') as batch_file:
@@ -468,8 +467,8 @@ def setup(params: Dict[str, Any], model) -> bool:
 
         # Copy additional files
         file_map = {
-            f"{params['read_from']}/namelists/{model_str}_namelist.input": 'namelist.input',
-            f"{params['read_from']}/turbines/{model_str}_windturbines-ij.dat": 'windturbines-ij.dat',
+            f"{params['read_from']}/namelists/{model}_namelist.input": 'namelist.input',
+            f"{params['read_from']}/turbines/{model}_windturbines-ij.dat": 'windturbines-ij.dat',
             f"{params['read_from']}/shell/export_libs_load_modules_{params['system']}.sh": 'export_libs_load_modules.sh',
             f"{params['read_from']}/shell/submit_template_{params['system']}.sh": 'submit.sh',
         }
@@ -479,7 +478,7 @@ def setup(params: Dict[str, Any], model) -> bool:
         # Update file placeholders with requested values
         replacements = {
             "lib_path": params['wrf_path'].replace("/", "\\/"),
-            "{PH_JOB_NAME}": f"{dir_name}_{model_str}_{rot_dir}",
+            "{PH_JOB_NAME}": f"{dir_name}_{model}_{rot_dir}",
             "{PH_ALLOCATION}": f"{params['allocation']}",
             "{PH_NTASKS}": ntasks,
             "{PH_TIME}": f"{params['runtime']}",

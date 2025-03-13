@@ -29,16 +29,22 @@ def convergence(params):
     formats   = sweep.determine_format(combs)
     casenames = sweep.return_case_strings(combs,formats)
 
+    model = params['rotor_model'].lower() + f'_sweep'
+
     remove_data = params['exclude_time']
     save_period = params['save_interval']
+
+    save_dir = f"{params['base_dir']}/{model}/figs/convergence"
+
+    os.makedirs(save_dir, exist_ok=False)
 
     for case in casenames:
 
         print(f'Working on {case}...')
 
-        case_path = f"{params['base_dir']}/{model}/{dir_name}"
+        case_base_path = f"{params['base_dir']}/{model}/{case}"
 
-        file2read = netCDF4.Dataset(f'/anvil/scratch/x-smata/wrf_les_sweep/iea15MW_validation/gad_sweep/{case}/wrfout_d02_0001-01-01_00_00_00','r',mmap=False) # type: ignore # Read Netcdf-type WRF output file
+        file2read = netCDF4.Dataset(f'{case_base_path}/wrfout_d02_0001-01-01_00_00_00','r',mmap=False) # type: ignore # Read Netcdf-type WRF output file
         file2read.variables.keys()
 
         # Field variables
@@ -174,14 +180,7 @@ def convergence(params):
         plt.setp(ax8.get_xticklabels(), visible=False)
         plt.setp(ax9.get_xticklabels(), visible=False)
 
-        plt.savefig(f"/scratch/09909/smata/wrf_les_sweep/runs/grid_study/convergence_{case}.png", bbox_inches="tight", dpi=600) 
-
-# def parallel_process_function(file):
-
-#     for i in range(1, 101):
-#         time.sleep(0.01)
-
-#     return True
+        plt.savefig(f"{save_dir}/{case}.png", bbox_inches="tight", dpi=600) 
 
 def parallel_process_function(file):
 
