@@ -483,9 +483,9 @@ def setup(params: Dict[str, Any], model) -> bool:
             "{PH_TIME}": f"{params['runtime']}",
         }
         for key, val in replacements.items():
-            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
-            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
-            pass
+            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
+            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
+            # pass
 
         if params['batch_submit']:
             with open(batch_file_path, 'a') as batch_file:
