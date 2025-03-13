@@ -470,8 +470,8 @@ def setup(params: Dict[str, Any], model) -> bool:
         file_map = {
             f"{params['read_from']}/namelists/{model_str}_namelist.input": 'namelist.input',
             f"{params['read_from']}/turbines/{model_str}_windturbines-ij.dat": 'windturbines-ij.dat',
-            f"{params['read_from']}/shell/export_libs_load_modules.sh": 'export_libs_load_modules.sh',
-            f"{params['read_from']}/shell/submit_template.sh": 'submit.sh',
+            f"{params['read_from']}/shell/export_libs_load_modules_{params['system']}.sh": 'export_libs_load_modules.sh',
+            f"{params['read_from']}/shell/submit_template_{params['system']}.sh": 'submit.sh',
         }
         for src, dst in file_map.items():
             copy_files(src, os.path.join(current_path, dst))
