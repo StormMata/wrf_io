@@ -398,7 +398,7 @@ def setup(params: Dict[str, Any], model) -> bool:
     # Check if the top directory already exists
     top_dir = f"{params['base_dir']}/{model}"
     if os.path.exists(top_dir):
-        print(f"Directory already exists.")
+        print(f"Directory {top_dir} already exists.")
         return False 
     
     # Make top directory
