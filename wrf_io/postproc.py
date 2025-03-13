@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
+from wrf_io import sweep
 from pathlib import Path
 from typing import Dict, Any
 from multiprocessing import Pool
@@ -17,54 +18,52 @@ from numpy.typing import ArrayLike
 from matplotlib.gridspec import GridSpec
 
 
-def convergence():
+def convergence(params):
+    """
+    Generate timeseries plots of power, thrust, CP, and CT for a series of runs
 
-    for case in casename:
+    Args:
+        params (Dict): A dictionary of settings
+    """
+    combs     = sweep.get_combinations(params)
+    formats   = sweep.determine_format(combs)
+    casenames = sweep.return_case_strings(combs,formats)
 
-        print(f'\nLoading data for {case}...')
+    remove_data = params['exclude_time']
+    save_period = params['save_interval']
+
+    for case in casenames:
+
+        print(f'Working on {case}...')
+
+        case_path = f"{params['base_dir']}/{model}/{dir_name}"
 
         file2read = netCDF4.Dataset(f'/anvil/scratch/x-smata/wrf_les_sweep/iea15MW_validation/gad_sweep/{case}/wrfout_d02_0001-01-01_00_00_00','r',mmap=False) # type: ignore # Read Netcdf-type WRF output file
         file2read.variables.keys()
 
-        timeidx = wrf.extract_times(file2read, timeidx=wrf.ALL_TIMES, meta=False)
-        times={}
-        for i in range(0,len(timeidx)):
-            times[i] = pd.to_datetime(str(timeidx[i])).strftime('%Y-%m-%d %H:%M:%S')
-
-        print(f'Calculating variables for {case}...')
-
         # Field variables
-        dx = file2read.getncattr('DX')
-        dy = file2read.getncattr('DY')
-        dt = file2read.getncattr('DT')
-        Nx = file2read.getncattr('WEST-EAST_PATCH_END_UNSTAG')
-        Ny = file2read.getncattr('SOUTH-NORTH_PATCH_END_UNSTAG')
-        Nz = file2read.getncattr('BOTTOM-TOP_PATCH_END_UNSTAG')
         Nt = file2read.variables['Times'].shape[0]
 
-        print(f'Getting save period for {case}...')
+        if(remove_data == 0.0):
+            save_period_new = 0.0
+        else:
+            save_period_new = (remove_data * 60 / save_period) + 1 # first xxx timesteps are not included in analysis
+        process_period  = Nt - int(save_period_new) # consider only xxx timesteps in analysis
 
-        downstreamDist = int(np.floor(1 * diameter / dx))
-
-        print(f'Getting wind turbine variables for {case}...')
+        Ts = Nt - int(process_period)
+        Te = Nt
+        Nt = Te - Ts
 
         # Wind turbine variables
         thrust      = file2read.variables['WTP_THRUST'      ][1:-1,:]
         power_aero  = file2read.variables['WTP_POWER'       ][1:-1,:]
         power_mech  = file2read.variables['WTP_POWER_MECH'  ][1:-1,:]
-        power_gen   = file2read.variables['WTP_POWER_GEN'   ][1:-1,:]
         torque_aero = file2read.variables['WTP_TORQUE'      ][1:-1,:]
         ct          = file2read.variables['WTP_THRUST_COEFF'][1:-1,:]
         cp          = file2read.variables['WTP_POWER_COEFF' ][1:-1,:]
         v0          = file2read.variables['WTP_V0_FST_AVE'  ][1:-1,:]
-        rotspeed    = file2read.variables['WTP_OMEGA'       ][1:-1,:] * (30.0 / np.pi) # convert rad/s to rpm
-        rotorApex_x = file2read.variables['WTP_ROTORAPEX_X' ][1:-1,:]
-        rotorApex_y = file2read.variables['WTP_ROTORAPEX_Y' ][1:-1,:]
-        rotorApex_z = file2read.variables['WTP_ROTORAPEX_Z' ][1:-1,:]
 
-        print(f'Plotting timeseries for {case}...')
-
-        timeseries = np.arange(len(thrust)) * save_period / 60 + save_period / 60
+        timeseries = np.arange(len(thrust)) * save_period / 60
 
         fig = plt.figure(figsize=(16, 11))
 
@@ -84,15 +83,18 @@ def convergence():
 
         ax1.plot(timeseries,thrust / 1000,linestyle='solid',linewidth=2)
         ax1.set_ylabel(r'Thrust [kN]')
+        ax1.set_ylim([1300,1900])
 
         ax2.plot(timeseries,torque_aero / 1000,linestyle='solid',linewidth=2)
         ax2.set_ylabel(r'Torque [kN m]')
+        ax2.set_ylim([13000,19000])
 
         ax3.plot(timeseries,power_aero / 1000,linestyle='solid',linewidth=2,label='aero')
         ax3.plot(timeseries,power_mech / 1000,linestyle='solid',linewidth=2,label='mech')
         ax3.set_ylabel(r'Power [kW]')
+        ax3.set_ylim([6000,10000])
         ax3.legend(loc="upper right", fancybox=True, shadow=False, ncol=3, fontsize=8)
-        
+
         error = np.zeros(len(thrust) - 1)
         for i in range(len(thrust) - 1):
             error[i] = np.abs(thrust[i] - thrust[i + 1]) / np.abs(thrust[i])
@@ -128,9 +130,11 @@ def convergence():
 
         ax8.plot(timeseries,ct,linestyle='solid',linewidth=2)
         ax8.set_ylabel(r'$C_T$ [-]')
+        ax8.set_ylim([0.7,1])
 
         ax9.plot(timeseries,cp,linestyle='solid',linewidth=2)
         ax9.set_ylabel(r'$C_P$ [-]')
+        ax9.set_ylim([0.5,0.9])
         ax9.yaxis.set_major_formatter(mticker.FormatStrFormatter('%.3f'))
 
         error = np.zeros(len(v0) - 1)
@@ -170,7 +174,7 @@ def convergence():
         plt.setp(ax8.get_xticklabels(), visible=False)
         plt.setp(ax9.get_xticklabels(), visible=False)
 
-        plt.savefig(f"/anvil/scratch/x-smata/wrf_les_sweep/iea15MW_validation/gad_sweep/power_convergence/convergence_{case}.png", bbox_inches="tight", dpi=600)  
+        plt.savefig(f"/scratch/09909/smata/wrf_les_sweep/runs/grid_study/convergence_{case}.png", bbox_inches="tight", dpi=600) 
 
 # def parallel_process_function(file):
 

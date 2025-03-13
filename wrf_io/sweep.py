@@ -66,25 +66,66 @@ def format_value(val: float, int_digits: int, frac_digits: int) -> str:
     # Add 'n' for negative values or return the positive string
     return f"n{formatted}" if val < 0 else formatted
 
-def determine_format(shear: list[float], veer: list[float]) -> tuple:
+def get_combinations(params: Dict[str, Any]) -> list:
     """
-    Determine the maximum number of integer and fractional digits from shear and veer lists.
+    Get the full list of shear/veer combinations as a list for iterating over
+    
+    Args:
+        params (Dict): A dictionary of discrete shear and veer values and excluded pairs if necessary
+    
+    Returns:
+        list: a list of combinations
+    """
+
+    combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
+
+    return combinations
+
+def determine_format(pairs: List[Tuple[float, float]]) -> Tuple[int, int]:
+    """
+    Determine the maximum number of integer and fractional digits from a list of (shear, veer) pairs.
 
     Args:
-        shear (list[float]): List of shear values.
-        veer (list[float]): List of veer values.
+        pairs (list[tuple[float, float]]): List of (shear, veer) value pairs.
 
     Returns:
         tuple: (int_digits, frac_digits)
     """
 
-    all_values = shear + veer
+    all_values = [val for pair in pairs for val in pair]  # Flatten the list of tuples
     
     # Determine max integer and fractional digits
     max_int_digits  = max(len(str(int(abs(val)))) for val in all_values)
     max_frac_digits = max(len(str(val).split('.')[-1]) if '.' in str(val) else 0 for val in all_values)
     
     return max_int_digits, max_frac_digits
+
+def return_case_strings(pairs, format_specs):
+    """
+    Return a formatted list of strings with the casenames to iterate over
+
+    Args:
+        pairs (list[float]): List of shear/veer pairs.
+        int_digits (int): number of digits for precision on left of decimal.
+        frac_digits (int): number of digits for precision on right of decimal.
+
+    Returns:
+        list: ['s0_v0','s0_v1',...]
+    """
+    # If pairs is a single pair (not a list), convert it into a list
+    if isinstance(pairs, tuple):
+        pairs = [pairs]
+    
+    int_digits, frac_digits = format_specs
+    case_strings = []
+    
+    for pair in pairs:
+        # Ensure pair is treated as a tuple (shear, veer)
+        shear_str = format_value(pair[0], int_digits, frac_digits)
+        veer_str = format_value(pair[1], int_digits, frac_digits)
+        case_strings.append(f"s{shear_str}_v{veer_str}")
+    
+    return case_strings
 
 def run_subprocess(command: List[str], mac_flag = False) -> None:
     """Run subprocess commands with OS compatibility."""
@@ -190,7 +231,7 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
     ######################################################################
     # Plot profiles
 
-    if(params.plot_profiles):
+    if(params['plot_profiles']):
         plot_sounding(figure_path, figure_name, namelist, pair, params, turbine, u, uinf, v, vinf, wdir, z, znondim)
 
     ######################################################################
@@ -223,6 +264,17 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
 
 def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Dict[str, Any], turbine, u, uinf, v, vinf, wdir, z, znondim) -> None:
     # Create a figure with a custom gridspec layout
+
+    latex_path = shutil.which("latex")
+
+    if latex_path:
+        latex_dir = os.path.dirname(latex_path)
+        os.environ["PATH"] += os.pathsep + latex_dir
+    else:
+        raise RuntimeError("LaTeX not found. Ensure it is installed and in the system path.")
+
+    plt.rcParams['text.usetex'] = True
+    
     fig, axs = plt.subplots(
         nrows = 2,
         ncols = 3,
@@ -324,40 +376,28 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     big_ax.set_xlabel(r'Wind speed $[\textrm{m~s$^{-1}$}]$')
     big_ax.set_ylabel(r'$z~[\textrm{m}]$')
 
+    print(figure_path)
+    print(figure_name)
+
     plt.savefig(figure_path + '/' + figure_name + '.png', bbox_inches="tight", dpi=600)
 
     plt.show()
 
-def get_combinations(params: Dict[str, Any]) -> list:
-    """
-    Get the full list of shear/veer combinations as a list for iterating over
-    
-    Args:
-        params (Dict): A dictionary of discrete shear and veer values and excluded pairs if necessary
-    
-    Returns:
-        list: a list of combinations
-    """
-
-    combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
-
-    return combinations
-
-def setup(params: Dict[str, Any], console, header, model) -> bool:
+def setup(params: Dict[str, Any], model) -> bool:
 
     combinations = get_combinations(params=params)
 
-    int_digits, frac_digits = determine_format(params['shear'], params['veer'])
+    formats = determine_format(combinations)
 
     # Initialize the success flag
     success = True
 
     # Check if the top directory already exists
     top_dir = f"{params['base_dir']}/{model}"
-    if os.path.exists(top_dir):
-        with Live(console=console) as live:
-            live.update(f"{header} Skipped, already exists.")
-        return False 
+    # if os.path.exists(top_dir):
+    #     with Live(console=console) as live:
+    #         live.update(f"{header} Skipped, already exists.")
+    #     return False 
     
     # Make top directory
     os.makedirs(f"{params['base_dir']}/{model}/figs", exist_ok=False)
@@ -372,107 +412,89 @@ def setup(params: Dict[str, Any], console, header, model) -> bool:
         with open(batch_file_path, 'w') as batch_file:
             batch_file.write("#!/bin/bash\n\n")
 
-    # Initialize Live for dynamic updates
-    with Live(console=console) as live:
-        live.update(f"{header} Creating summary table...")
 
-        params = {}
-        params['read_from']   = '.'
-        params['name_path']   = f'./namelists/{model_str}_namelist.input'
-        params['save_to']     = f'{params['base_dir']}/{model}'
-        params['turb_model']  = params['turbine']
-        params['rotor_model'] = model_str.upper()
-        params['save_both']   = params['plot_domain']
-        params['outer_pad']   = 75
-        params['print_table'] = False
-        params['slice_loc']   = params['max_sample']
+    namelist, turbtuple = preproc.validate(opt_params=params)
 
-        namelist, turbtuple = preproc.validate(opt_params=params)
+    ntasks = namelist.nproc_x * namelist.nproc_y
 
-        ntasks = namelist.nproc_x * namelist.nproc_y
+    if turbtuple.rot_dir == 1:
+        rot_dir = 'cw'
+    if turbtuple.rot_dir == -1:
+        rot_dir = 'ccw'
+    if turbtuple.rot_dir == 0:
+        rot_dir = 'irr'
 
-        if turbtuple.rot_dir == 1:
-            rot_dir = 'cw'
-        if turbtuple.rot_dir == -1:
-            rot_dir = 'ccw'
-        if turbtuple.rot_dir == 0:
-            rot_dir = 'irr'
+    counter = 1
 
-        counter = 1
+    # Only create pairs requested
+    for pair in combinations:
+        if pair in params['excluded_pairs']:
+            continue
 
-        # Only create pairs requested
-        for pair in combinations:
-            if pair in params['excluded_pairs']:
-                continue
+        # Format shear and veer values
+        dir_name = return_case_strings(pair,formats)[0]
+        current_path = f"{params['base_dir']}/{model}/{dir_name}"
 
-            # Update the live console output for each loop iteration
-            live.update(f"{header} Case: {counter}. ({pair[0]},{pair[1]})")
+        # Create shear + veer directory
+        os.makedirs(current_path, exist_ok=False)
 
-            # Format shear and veer values
-            shear_str = format_value(pair[0], int_digits, frac_digits)
-            veer_str = format_value(pair[1], int_digits, frac_digits)
-            dir_name = f"s{shear_str}_v{veer_str}"
-            current_path = f"{params['base_dir']}/{model}/{dir_name}"
+        # Create sounding file
+        create_sounding(current_path, f"{params['base_dir']}/{model}/figs", dir_name, params, namelist, turbtuple, pair)
 
-            # Create shear + veer directory
-            os.makedirs(current_path, exist_ok=False)
+        # Create symbolic links the executables
+        create_symlinks(params['wrf_path'], current_path)
 
-            # Create sounding file
-            create_sounding(current_path, f"{params['base_dir']}/{model}/figs", dir_name, pair, namelist.ztop)
+        # Copy items in case template directory
+        for item in os.listdir(params['read_from']):
+            source_path = os.path.join(params['read_from'], item)
+            if os.path.isfile(source_path):  # Check if the item is a file
+                copy_files(source_path, os.path.join(current_path, item))
 
-            # Create symbolic links the executables
-            create_symlinks(params['wrf_path'], current_path)
+        # Copy requested turbine directory
+        turb_source_dir = f'{params['read_from']}/case/windTurbines/{params['turb_model']}'
+        destination_dir = os.path.join(current_path, 'windTurbines', params['turb_model'])
 
-            # Copy items in case template directory
-            for item in os.listdir('./case'):
-                source_path = os.path.join('./case', item)
-                if os.path.isfile(source_path):  # Check if the item is a file
-                    copy_files(source_path, os.path.join(current_path, item))
+        if os.path.exists(turb_source_dir) and os.path.isdir(turb_source_dir):
+            os.makedirs(os.path.join(current_path, 'windTurbines'), exist_ok=False)
+            shutil.copytree(turb_source_dir, destination_dir)
+        else:
+            print(f'ERROR. Source directory {turb_source_dir} does not exist.')
+            return False
+        
+        # Copy wind turbine database
+        shutil.copy2(f'{params['read_from']}/case/windTurbines/windTurbineTypes.dat', os.path.join(current_path, 'windTurbines'))
 
-            # Copy requested turbine directory
-            turb_source_dir = f'./case/windTurbines/{params['turbine']}'
-            destination_dir = os.path.join(current_path, 'windTurbines', params['turbine'])
+        # Copy additional files
+        file_map = {
+            f'{params['read_from']}/namelists/{model_str}_namelist.input': 'namelist.input',
+            f'{params['read_from']}/turbines/{model_str}_windturbines-ij.dat': 'windturbines-ij.dat',
+            f'{params['read_from']}/shell/export_libs_load_modules.sh': 'export_libs_load_modules.sh',
+            f'{params['read_from']}/shell/submit_template.sh': 'submit.sh',
+        }
+        for src, dst in file_map.items():
+            copy_files(src, os.path.join(current_path, dst))
 
-            if os.path.exists(turb_source_dir) and os.path.isdir(turb_source_dir):
-                os.makedirs(os.path.join(current_path, 'windTurbines'), exist_ok=False)
-                shutil.copytree(turb_source_dir, destination_dir)
-            else:
-                live.update(f"{header} ERROR. Source directory {turb_source_dir} does not exist.")
-                return False
-            
-            # Copy wind turbine database
-            shutil.copy2('./case/windTurbines/windTurbineTypes.dat', os.path.join(current_path, 'windTurbines'))
+        # Update file placeholders with requested values
+        replacements = {
+            "lib_path": params['wrf_path'].replace("/", "\\/"),
+            "{PH_JOB_NAME}": f"{dir_name}_{model_str}_{rot_dir}",
+            "{PH_ALLOCATION}": f"{params['allocation']}",
+            "{PH_NTASKS}": ntasks,
+            "{PH_TIME}": f"{params['runtime']}",
+        }
+        for key, val in replacements.items():
+            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
+            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
+            pass
 
-            # Copy additional files
-            file_map = {
-                f'./namelists/{model_str}_namelist.input': 'namelist.input',
-                f'./turbines/{model_str}_windturbines-ij.dat': 'windturbines-ij.dat',
-                './shell/export_libs_load_modules.sh': 'export_libs_load_modules.sh',
-                './shell/submit_template.sh': 'submit.sh',
-            }
-            for src, dst in file_map.items():
-                copy_files(src, os.path.join(current_path, dst))
+        if params['batch_submit']:
+            with open(batch_file_path, 'a') as batch_file:
+                batch_file.write(f"cd {current_path}\nsbatch submit.sh\n\n")
 
-            # Update file placeholders with requested values
-            replacements = {
-                "lib_path": params['library_path'].replace("/", "\\/"),
-                "{PH_JOB_NAME}": f"{dir_name}_{model_str}_{rot_dir}",
-                "{PH_ALLOCATION}": f"{params['allocation']}",
-                "{PH_NTASKS}": ntasks,
-                "{PH_TIME}": f"{params['runtime']}",
-            }
-            for key, val in replacements.items():
-                run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
-                run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
-
-            if params['batch_submit']:
-                with open(batch_file_path, 'a') as batch_file:
-                    batch_file.write(f"cd {current_path}\nsbatch submit.sh\n\n")
-
-            counter = counter + 1
-
+        counter = counter + 1
+    
+    if params['batch_submit']:
         os.chmod(batch_file_path, 0o777)
 
-        live.update(f"{header} Done.")  # Final message
-
-        return success
+    print('Done.')
+    return success

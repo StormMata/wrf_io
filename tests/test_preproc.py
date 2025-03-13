@@ -7,10 +7,6 @@ def namelist_path():
     """Return the path to a real namelist.input file in the tests directory."""
     return os.path.join(os.path.dirname(__file__), "namelist.input")
 
-def turbine_properties_path():
-    """Return the path to a real turbineProperties.tbl file in the tests directory."""
-    return os.path.join(os.path.dirname(__file__), "turbineProperties.tbl")
-
 def test_parse_namelist(namelist_path):
     """Test parse_namelist with a real namelist.input file."""
     opt_params = {"name_path": namelist_path}
@@ -18,22 +14,18 @@ def test_parse_namelist(namelist_path):
 
     assert isinstance(config, dict)
 
-    # Sample checks based on expected values in your namelist.input
+    # Verify Required Sections are read
     assert "time_control" in config
     assert "domains" in config
     assert "physics" in config
     assert "dynamics" in config
     assert "bdy_control" in config
 
-    # Check a few expected values (update these based on your actual namelist)
-    # assert config["time_control"]["run_days"] >= 0
-    # assert config["domains"]["time_step"] > 0
-
 def test_parse_turbine_properties():
     """Test parse_turbine_properties with a real turbineProperties.tbl file."""
     opt_params = {
         "read_from": os.path.dirname('./tests/'),
-        "turb_model": "iea10MW"  # Ensure your test file is placed correctly
+        "turb_model": "iea10MW"
     }
 
     config = preproc.parse_turbine_properties(opt_params)
@@ -41,7 +33,7 @@ def test_parse_turbine_properties():
     assert isinstance(config, dict)
     assert len(config) > 0, "Parsed configuration is empty"
 
-    # List of expected keys
+    # Check all keys are read correctly
     expected_keys = [
         "Length of the blade element vector [-]",
         "Number of airfoils [-]",
@@ -70,9 +62,10 @@ def test_parse_turbine_properties():
         "Yaw error threshold [(deg)^2*(seconds)]"
     ]
 
+    # All keys are present in parsed data
     for key in expected_keys:
         assert key in config, f"Missing expected key: {key}"
 
-    # Check that all values are of type float
+    # All values are floats in parsed data
     for key, value in config.items():
         assert isinstance(value, float), f"Value for {key} is not a float"
