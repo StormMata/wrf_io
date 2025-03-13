@@ -349,7 +349,7 @@ def parproc(processes: int, params: Dict[str, Any]) -> None:
 
     static_args = {}
 
-    static_args['save_period'] = params['save_period']
+    static_args['save_period'] = params['save_interval']
     static_args['remove_data'] = params['remove_data']
     static_args['diameter']    = float(turbprops['Rotor diameter [m]'])
     static_args['dhub']        = float(turbprops['Hub diameter [m]'])
