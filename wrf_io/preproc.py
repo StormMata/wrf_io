@@ -730,7 +730,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         table_text = buffer.getvalue() # Retrieve the text from the buffer
 
     # Define the output filename
-    output_filename = opt_params['save_to'] + "/overview.txt"
+    output_filename = opt_params['base_dir'] + "/overview.txt"
 
     # Write the exported table to the file
     with open(output_filename, "w") as file:
@@ -797,7 +797,7 @@ def combine_domain_plots(fig1: plt.Figure, fig2: plt.Figure, opt_params: Dict[st
     combined_img.paste(img2, (0, height1))
     
     # Save the combined image as a PNG
-    combined_img.save(opt_params['save_to'] + "/domains.png", dpi=(500, 500))
+    combined_img.save(opt_params['base_dir'] + "/domains.png", dpi=(500, 500))
     
     # Optionally, remove the temporary individual PNG files
     os.remove("plot1.png")
@@ -840,10 +840,10 @@ def validate(opt_params: Dict[str, Any]) -> Tuple[Namelist, Turbine]:
     # print('Point 6')
 
     if 'save_outer' in opt_params and opt_params['save_outer']:
-        out_fig.savefig(opt_params['save_to'] + '/outer.png', dpi=500, bbox_inches='tight', pad_inches=0.05)
+        out_fig.savefig(opt_params['base_dir'] + '/outer.png', dpi=500, bbox_inches='tight', pad_inches=0.05)
 
     if 'save_inner' in opt_params and opt_params['save_inner']:
-        in_fig.savefig(opt_params['save_to'] + '/inner.png', dpi=500, bbox_inches='tight')
+        in_fig.savefig(opt_params['base_dir'] + '/inner.png', dpi=500, bbox_inches='tight')
 
     if 'save_both' in opt_params and opt_params['save_both']:
         combine_domain_plots(fig1=out_fig, fig2=in_fig, opt_params=opt_params)
