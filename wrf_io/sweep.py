@@ -462,7 +462,7 @@ def setup(params: Dict[str, Any], model) -> bool:
             return False
         
         # Copy wind turbine database
-        shutil.copy2(f'{params['read_from']}/case/windTurbines/windTurbineTypes.dat', os.path.join(current_path, 'windTurbines'))
+        shutil.copy2(f"{params['read_from']}/case/windTurbines/windTurbineTypes.dat", os.path.join(current_path, 'windTurbines'))
 
         # Copy additional files
         file_map = {
