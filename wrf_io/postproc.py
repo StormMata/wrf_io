@@ -327,7 +327,7 @@ def parproc(processes: int, params: Dict[str, Any]) -> None:
         opt_params (Dict): A dictionary of settings including sample locations if desired
     """
 
-    filelist = sorted(glob.glob(params['base_dir'] + '/*/wrfout_d02_0001-01-01_00_00_00'))
+    filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_00_00', recursive=True)
 
     console = Console()
 
