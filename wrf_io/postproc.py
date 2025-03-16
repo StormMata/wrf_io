@@ -374,12 +374,6 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     Te = Nt
     Nt = Te - Ts
 
-    h   = file2read.variables['HGT'][Ts:Te,:,:]
-    ph  = file2read.variables['PH' ][Ts:Te,:,:,:]
-    phb = file2read.variables['PHB'][Ts:Te,:,:,:]
-    p   = file2read.variables['P'  ][Ts:Te,:,:,:]
-    pb  = file2read.variables['PB' ][Ts:Te,:,:,:]
-
     # Wind turbine variables
     thrust      = file2read.variables['WTP_THRUST'      ][Ts:Te,:]
     power_aero  = file2read.variables['WTP_POWER'       ][Ts:Te,:]
@@ -410,11 +404,10 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     vrel = (file2read.variables['WTP_VREL'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
     phi = (file2read.variables['WTP_PHI'          ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
-    u = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    v = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    w = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    u_WTP = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    v_WTP = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    w_WTP = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
-    file2read.close()
     var_holder = {}
 
     tower_xloc  = static_args['tower_xloc']
@@ -437,10 +430,9 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     ncol_vect = np.arange(0,Ny)
     neta_vect = np.arange(0,Nz)
 
-    h_reshape = h.reshape(Nt,1,Ny,Nx)
-
 # ================================================================================================================================
     # u-velocity component at different downstream locations, y-z plots:
+    u   = file2read.variables['U'  ][Ts:Te,:,:,:]
     u4d = 0.5*(  u[:,:,:,nrow_vect] +   u[:,:,:,nrow_vect+1] ) # x-component of wind speed in 4d
     del u
     gc.collect()
@@ -456,6 +448,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
 # ================================================================================================================================
     # v-velocity component at different downstream locations, y-z plots:
+    v   = file2read.variables['V'  ][Ts:Te,:,:,:]
     v4d = 0.5*(  v[:,:,ncol_vect,:] +   v[:,:,ncol_vect+1,:] ) # y-component of wind speed in 4d
     del v
     gc.collect()
@@ -471,6 +464,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
 # ================================================================================================================================
     # v-velocity component at different downstream locations, y-z plots:
+    w   = file2read.variables['W'  ][Ts:Te,:,:,:]
     w4d = 0.5*(  w[:,neta_vect,:,:] +   w[:,neta_vect+1,:,:] ) # z-component of wind speed in 4d
     del w
     gc.collect()
@@ -486,14 +480,10 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
 # ================================================================================================================================
     # pressure at different downstream locations, y-z plots:
-    phm  = 0.5*( ph[:,neta_vect,:,:] +  ph[:,neta_vect+1,:,:] )
-    del ph
-    gc.collect()
-    phbm = 0.5*(phb[:,neta_vect,:,:] + phb[:,neta_vect+1,:,:] )
-    del phb
-    gc.collect()
-    del phm,phbm,h,h_reshape
-    gc.collect()
+
+    p   = file2read.variables['P'  ][Ts:Te,:,:,:]
+    pb  = file2read.variables['PB' ][Ts:Te,:,:,:]
+
     p4d = p + pb # total pressure in Pa in 4d (perturbation pressure + base state pressure)
     del p,pb
     gc.collect()
@@ -506,6 +496,8 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     del p4d
     gc.collect()
+
+    file2read.close()
 
     ###########################################################################
     rhub = dhub/2
@@ -550,9 +542,9 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     var_holder['aoa']         = aoa
     var_holder['v1']          = v1
 
-    var_holder['u']           = u
-    var_holder['v']           = v
-    var_holder['w']           = w
+    var_holder['u']           = u_WTP
+    var_holder['v']           = v_WTP
+    var_holder['w']           = w_WTP
 
     var_holder['vrel']        = vrel
     var_holder['phi']         = phi
