@@ -91,16 +91,16 @@ def convergence(params: Dict[str, Any]) -> bool:
 
         ax1.plot(timeseries,thrust / 1000,linestyle='solid',linewidth=2)
         ax1.set_ylabel(r'Thrust [kN]')
-        ax1.set_ylim([1300,1900])
+        # ax1.set_ylim([1300,1900])
 
         ax2.plot(timeseries,torque_aero / 1000,linestyle='solid',linewidth=2)
         ax2.set_ylabel(r'Torque [kN m]')
-        ax2.set_ylim([13000,19000])
+        # ax2.set_ylim([13000,19000])
 
         ax3.plot(timeseries,power_aero / 1000,linestyle='solid',linewidth=2,label='aero')
         ax3.plot(timeseries,power_mech / 1000,linestyle='solid',linewidth=2,label='mech')
         ax3.set_ylabel(r'Power [kW]')
-        ax3.set_ylim([6000,10000])
+        # ax3.set_ylim([6000,10000])
         ax3.legend(loc="upper right", fancybox=True, shadow=False, ncol=3, fontsize=8)
 
         error = np.zeros(len(thrust) - 1)
