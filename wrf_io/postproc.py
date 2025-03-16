@@ -439,7 +439,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
 # ================================================================================================================================
     # u-velocity component at different downstream locations, y-z plots:
-    u   = file2read.variables['U'  ][Ts:Te,:,:,:]
+    u   = file2read.variables['U'][Ts:Te,:,:,:]
     u4d = 0.5*(  u[:,:,:,nrow_vect] +   u[:,:,:,nrow_vect+1] ) # x-component of wind speed in 4d
     del u
     gc.collect()
@@ -453,19 +453,16 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     del u4d
     gc.collect()
 
-    print('done - marker')
-    return True
-
 # ================================================================================================================================
     # v-velocity component at different downstream locations, y-z plots:
-    v   = file2read.variables['V'  ][Ts:Te,:,:,:]
+    v   = file2read.variables['V'][Ts:Te,:,:,:]
     v4d = 0.5*(  v[:,:,ncol_vect,:] +   v[:,:,ncol_vect+1,:] ) # y-component of wind speed in 4d
     del v
     gc.collect()
 
-    var_holder.update = ({
+    var_holder.update({
         f"vx_{i}D": v4d[:, :, :, lat_dist] +
-        (v4d[:, :, :, lat_dist + 1] - v4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        (v4d[:, :, :, lat_dist + 1] - v4d[:, :, :, lat_dist]) * (distances[f"{i.replace('lat_', '')}"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
     })
 
@@ -474,14 +471,14 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
 # ================================================================================================================================
     # v-velocity component at different downstream locations, y-z plots:
-    w   = file2read.variables['W'  ][Ts:Te,:,:,:]
+    w   = file2read.variables['W'][Ts:Te,:,:,:]
     w4d = 0.5*(  w[:,neta_vect,:,:] +   w[:,neta_vect+1,:,:] ) # z-component of wind speed in 4d
     del w
     gc.collect()
 
-    var_holder.update = ({
+    var_holder.update({
         f"wx_{i}D": w4d[:, :, :, lat_dist] +
-        (w4d[:, :, :, lat_dist + 1] - w4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        (w4d[:, :, :, lat_dist + 1] - w4d[:, :, :, lat_dist]) * (distances[f"{i.replace('lat_', '')}"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
     })
 
@@ -491,16 +488,16 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 # ================================================================================================================================
     # pressure at different downstream locations, y-z plots:
 
-    p   = file2read.variables['P'  ][Ts:Te,:,:,:]
-    pb  = file2read.variables['PB' ][Ts:Te,:,:,:]
+    p   = file2read.variables['P'][Ts:Te,:,:,:]
+    pb  = file2read.variables['PB'][Ts:Te,:,:,:]
 
     p4d = p + pb # total pressure in Pa in 4d (perturbation pressure + base state pressure)
     del p,pb
     gc.collect()
 
-    var_holder.update = ({
+    var_holder.update({
         f"p_{i}D": p4d[:, :, :, lat_dist] +
-        (p4d[:, :, :, lat_dist + 1] - p4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        (p4d[:, :, :, lat_dist + 1] - p4d[:, :, :, lat_dist]) * (distances[f"{i.replace('lat_', '')}"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
     })
 
