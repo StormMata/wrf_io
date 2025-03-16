@@ -273,7 +273,10 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     else:
         raise RuntimeError("LaTeX not found. Ensure it is installed and in the system path.")
 
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams.update({
+        'text.usetex': True,
+        'text.latex.preamble': r'\usepackage{amsfonts}'
+    })
     
     fig, axs = plt.subplots(
         nrows = 2,
@@ -389,24 +392,22 @@ def setup(params: Dict[str, Any], model) -> bool:
 
     formats = determine_format(combinations)
 
+    model = params['rotor_model'].lower() + f'_sweep'
+
     # Initialize the success flag
     success = True
 
     # Check if the top directory already exists
     top_dir = f"{params['base_dir']}/{model}"
-    # if os.path.exists(top_dir):
-    #     with Live(console=console) as live:
-    #         live.update(f"{header} Skipped, already exists.")
-    #     return False 
+    if os.path.exists(top_dir):
+        print(f"Directory {top_dir} already exists.")
+        return False 
     
     # Make top directory
     os.makedirs(f"{params['base_dir']}/{model}/figs", exist_ok=False)
 
-    # Clip model string for further use
-    model_str = model.split('_')[0].lower()
-
     # Create batch submit file if requested
-    batch_file_path = f"{params['base_dir']}/submit_group_{model_str}.sh"
+    batch_file_path = f"{params['base_dir']}/submit_group_{model}.sh"
 
     if params['batch_submit']:
         with open(batch_file_path, 'w') as batch_file:
@@ -451,7 +452,7 @@ def setup(params: Dict[str, Any], model) -> bool:
                 copy_files(source_path, os.path.join(current_path, item))
 
         # Copy requested turbine directory
-        turb_source_dir = f'{params['read_from']}/case/windTurbines/{params['turb_model']}'
+        turb_source_dir = f"{params['read_from']}/case/windTurbines/{params['turb_model']}"
         destination_dir = os.path.join(current_path, 'windTurbines', params['turb_model'])
 
         if os.path.exists(turb_source_dir) and os.path.isdir(turb_source_dir):
@@ -462,14 +463,14 @@ def setup(params: Dict[str, Any], model) -> bool:
             return False
         
         # Copy wind turbine database
-        shutil.copy2(f'{params['read_from']}/case/windTurbines/windTurbineTypes.dat', os.path.join(current_path, 'windTurbines'))
+        shutil.copy2(f"{params['read_from']}/case/windTurbines/windTurbineTypes.dat", os.path.join(current_path, 'windTurbines'))
 
         # Copy additional files
         file_map = {
-            f'{params['read_from']}/namelists/{model_str}_namelist.input': 'namelist.input',
-            f'{params['read_from']}/turbines/{model_str}_windturbines-ij.dat': 'windturbines-ij.dat',
-            f'{params['read_from']}/shell/export_libs_load_modules.sh': 'export_libs_load_modules.sh',
-            f'{params['read_from']}/shell/submit_template.sh': 'submit.sh',
+            f"{params['read_from']}/namelists/{model}_namelist.input": 'namelist.input',
+            f"{params['read_from']}/turbines/{model}_windturbines-ij.dat": 'windturbines-ij.dat',
+            f"{params['read_from']}/shell/export_libs_load_modules_{params['system']}.sh": 'export_libs_load_modules.sh',
+            f"{params['read_from']}/shell/submit_template_{params['system']}.sh": 'submit.sh',
         }
         for src, dst in file_map.items():
             copy_files(src, os.path.join(current_path, dst))
@@ -477,15 +478,15 @@ def setup(params: Dict[str, Any], model) -> bool:
         # Update file placeholders with requested values
         replacements = {
             "lib_path": params['wrf_path'].replace("/", "\\/"),
-            "{PH_JOB_NAME}": f"{dir_name}_{model_str}_{rot_dir}",
+            "{PH_JOB_NAME}": f"{dir_name}_{model}_{rot_dir}",
             "{PH_ALLOCATION}": f"{params['allocation']}",
             "{PH_NTASKS}": ntasks,
             "{PH_TIME}": f"{params['runtime']}",
         }
         for key, val in replacements.items():
-            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
-            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
-            pass
+            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
+            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
+            # pass
 
         if params['batch_submit']:
             with open(batch_file_path, 'a') as batch_file:

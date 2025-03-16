@@ -1,6 +1,7 @@
 # Directories
 wrf_io.egg-info/
 wrf_io/__pycache__/
+.eggs/
 
 # Compiled Object files
 *.slo
