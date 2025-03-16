@@ -185,7 +185,7 @@ def convergence(params):
 
     print('Done.')
 
-def fast_process(file, static_args):
+def fast_process(file, static_args, console):
 
     save_period = static_args['save_period'] # in seconds
     remove_data = static_args['remove_data'] # in minutes;  discard first xxx minutes (e.g., ~2 flow-through times)
@@ -203,7 +203,8 @@ def fast_process(file, static_args):
 
     case = os.path.basename(dir_path)
 
-    print(f'\nWorking on {case}...')
+    # print(f'\nWorking on {case}...')
+    console.print(f"Working on [bold][bright_red]{case}[/bright_red][/bold]...")
 
     file2read = netCDF4.Dataset(file,'r',mmap=False) # type: ignore # Read Netcdf-type WRF output file
     file2read.variables.keys()
@@ -365,7 +366,7 @@ def parproc(processes: int, params: Dict[str, Any]) -> None:
     
     # Parallel pool
     with Pool(processes) as pool:
-        pool.starmap(fast_process, [(file, static_args) for file in filelist])
+        pool.starmap(fast_process, [(file, static_args, console) for file in filelist])
 
     end_time = time.time()
 
