@@ -203,10 +203,10 @@ def fast_process(file, static_args):
 
     case = os.path.basename(dir_path)
 
-    console = Console()
+    # console = Console()
 
-    # print(f'\nWorking on {case}...')
-    console.print(f"Working on [bold][bright_red]{case}[/bright_red][/bold]...")
+    print(f'\nWorking on [bold][bright_red]{case}[/bright_red][/bold]...')
+    # console.print(f"Working on [bold][bright_red]{case}[/bright_red][/bold]...")
 
     file2read = netCDF4.Dataset(file,'r',mmap=False) # type: ignore # Read Netcdf-type WRF output file
     file2read.variables.keys()
