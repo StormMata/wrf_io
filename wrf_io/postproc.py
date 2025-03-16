@@ -19,7 +19,7 @@ from numpy.typing import ArrayLike
 from matplotlib.gridspec import GridSpec
 
 
-def convergence(params):
+def convergence(params: Dict[str, Any]) -> bool:
     """
     Generate timeseries plots of power, thrust, CP, and CT for a series of runs
 
@@ -185,7 +185,9 @@ def convergence(params):
 
     print('Done.')
 
-def fast_process(file, static_args):
+    return True
+
+def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     save_period = static_args['save_period'] # in seconds
     remove_data = static_args['remove_data'] # in minutes;  discard first xxx minutes (e.g., ~2 flow-through times)
@@ -319,8 +321,18 @@ def fast_process(file, static_args):
     
     del var_holder
 
+    return True
 
-def full_process(file, static_args):
+
+def full_process(file: str, static_args: Dict[str, Any]) -> bool:
+    """
+    Large process of WRF output data including sampling u, v, w, and p fields.
+
+    Args:
+        file (str): the path of the WRFout file to process
+        static_args (ArrayLike): Azimuthal locations over which to average
+    """
+
 
     save_period = static_args['save_period'] # in seconds
     remove_data = static_args['remove_data'] # in minutes;  discard first xxx minutes (e.g., ~2 flow-through times)
@@ -367,7 +379,6 @@ def full_process(file, static_args):
     phb = file2read.variables['PHB'][Ts:Te,:,:,:]
     p   = file2read.variables['P'  ][Ts:Te,:,:,:]
     pb  = file2read.variables['PB' ][Ts:Te,:,:,:]
-    th  = file2read.variables['T'  ][Ts:Te,:,:,:]
 
     # Wind turbine variables
     thrust      = file2read.variables['WTP_THRUST'      ][Ts:Te,:]
@@ -404,41 +415,11 @@ def full_process(file, static_args):
     w = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
     file2read.close()
+    var_holder = {}
 
     tower_xloc  = static_args['tower_xloc']
     tower_yloc  = static_args['tower_yloc']
     hub_height  = static_args['hub_height']
-
-    Lx = Nx * dx # Lx of the computational domain
-    Ly = Ny * dy # Ly of the computational domain
-
-    nrow_vect = np.arange(0,Nx)
-    ncol_vect = np.arange(0,Ny)
-    neta_vect = np.arange(0,Nz)
-    ntme_vect = np.arange(0,Nt)
-
-    h_reshape = h.reshape(Nt,1,Ny,Nx)
-
-    u4d = 0.5*(  u[:,:,:,nrow_vect] +   u[:,:,:,nrow_vect+1] ) # x-component of wind speed in 4d
-    del u
-    gc.collect()
-    v4d = 0.5*(  v[:,:,ncol_vect,:] +   v[:,:,ncol_vect+1,:] ) # y-component of wind speed in 4d
-    del v
-    gc.collect()
-    w4d = 0.5*(  w[:,neta_vect,:,:] +   w[:,neta_vect+1,:,:] ) # z-component of wind speed in 4d
-    del w
-    gc.collect()
-    phm  = 0.5*( ph[:,neta_vect,:,:] +  ph[:,neta_vect+1,:,:] )
-    del ph
-    gc.collect()
-    phbm = 0.5*(phb[:,neta_vect,:,:] + phb[:,neta_vect+1,:,:] )
-    del phb
-    gc.collect()
-    del phm,phbm,h,h_reshape
-    gc.collect()
-    p4d = p + pb # total pressure in Pa in 4d (perturbation pressure + base state pressure)
-    del p,pb
-    gc.collect()
 
     ###########################################################################
     rotor_xloc = np.mean(rotorApex_x)                 # Rotor x-position in meters
@@ -452,37 +433,79 @@ def full_process(file, static_args):
         for i, dist in distances.items()
     }
 
+    nrow_vect = np.arange(0,Nx)
+    ncol_vect = np.arange(0,Ny)
+    neta_vect = np.arange(0,Nz)
+
+    h_reshape = h.reshape(Nt,1,Ny,Nx)
+
 # ================================================================================================================================
     # u-velocity component at different downstream locations, y-z plots:
-    ux_values = {
+    u4d = 0.5*(  u[:,:,:,nrow_vect] +   u[:,:,:,nrow_vect+1] ) # x-component of wind speed in 4d
+    del u
+    gc.collect()
+
+    var_holder.update = ({
         f"ux_{i}D": u4d[:, :, :, lat_dist] +
         (u4d[:, :, :, lat_dist + 1] - u4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
-    }
+    })
+
+    del u4d
+    gc.collect()
 
 # ================================================================================================================================
     # v-velocity component at different downstream locations, y-z plots:
-    vx_values = {
+    v4d = 0.5*(  v[:,:,ncol_vect,:] +   v[:,:,ncol_vect+1,:] ) # y-component of wind speed in 4d
+    del v
+    gc.collect()
+
+    var_holder.update = ({
         f"vx_{i}D": v4d[:, :, :, lat_dist] +
         (v4d[:, :, :, lat_dist + 1] - v4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
-    }
+    })
+
+    del v4d
+    gc.collect()
 
 # ================================================================================================================================
     # v-velocity component at different downstream locations, y-z plots:
-    wx_values = {
+    w4d = 0.5*(  w[:,neta_vect,:,:] +   w[:,neta_vect+1,:,:] ) # z-component of wind speed in 4d
+    del w
+    gc.collect()
+
+    var_holder.update = ({
         f"wx_{i}D": w4d[:, :, :, lat_dist] +
         (w4d[:, :, :, lat_dist + 1] - w4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
-    }
+    })
+
+    del w4d
+    gc.collect()
 
 # ================================================================================================================================
     # pressure at different downstream locations, y-z plots:
-    p_values = {
-        f"p_{i}D": w4d[:, :, :, lat_dist] +
+    phm  = 0.5*( ph[:,neta_vect,:,:] +  ph[:,neta_vect+1,:,:] )
+    del ph
+    gc.collect()
+    phbm = 0.5*(phb[:,neta_vect,:,:] + phb[:,neta_vect+1,:,:] )
+    del phb
+    gc.collect()
+    del phm,phbm,h,h_reshape
+    gc.collect()
+    p4d = p + pb # total pressure in Pa in 4d (perturbation pressure + base state pressure)
+    del p,pb
+    gc.collect()
+
+    var_holder.update = ({
+        f"p_{i}D": p4d[:, :, :, lat_dist] +
         (p4d[:, :, :, lat_dist + 1] - p4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
-    }
+    })
+
+    del p4d
+    gc.collect()
 
     ###########################################################################
     rhub = dhub/2
@@ -494,8 +517,6 @@ def full_process(file, static_args):
         dist = dist + 0.5*((diameter/2 - rhub)/Nelm)
 
     rOverR = dr/(diameter/2)
-
-    var_holder = {}
 
     var_holder['diameter']    = diameter
     var_holder['hub_height']  = hub_height
@@ -544,14 +565,11 @@ def full_process(file, static_args):
     var_holder['trb_y']       = rotor_yloc
     var_holder['trb_z']       = rotor_zloc
 
-    var_holder.update(ux_values)
-    var_holder.update(vx_values)
-    var_holder.update(wx_values)
-    var_holder.update(p_values)
-
     np.savez( os.path.join(f'{dir_path}/{case}_full.npz'),**var_holder)
     
     del var_holder
+
+    return True
 
 
 def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
