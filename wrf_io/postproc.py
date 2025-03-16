@@ -391,7 +391,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     # cp          = file2read.variables['WTP_POWER_COEFF' ][Ts:Te,:]
     # v0          = file2read.variables['WTP_V0_FST_AVE'  ][Ts:Te,:]
     # rotspeed    = file2read.variables['WTP_OMEGA'       ][Ts:Te,:] * (30.0 / np.pi) # convert rad/s to rpm
-    # rotorApex_x = file2read.variables['WTP_ROTORAPEX_X' ][Ts:Te,:]
+    rotorApex_x = file2read.variables['WTP_ROTORAPEX_X' ][Ts:Te,:]
     # rotorApex_y = file2read.variables['WTP_ROTORAPEX_Y' ][Ts:Te,:]
     # rotorApex_z = file2read.variables['WTP_ROTORAPEX_Z' ][Ts:Te,:]
 
@@ -423,8 +423,8 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     ###########################################################################
     rotor_xloc = np.mean(rotorApex_x)                 # Rotor x-position in meters
-    rotor_yloc = np.mean(rotorApex_y)                 # Rotor y-position in meters
-    rotor_zloc = np.mean(rotorApex_z)                 # Rotor z-position in meters
+    # rotor_yloc = np.mean(rotorApex_y)                 # Rotor y-position in meters
+    # rotor_zloc = np.mean(rotorApex_z)                 # Rotor z-position in meters
     ###########################################################################
     distances = {f"dist_{i}D": rotor_xloc + (i * diameter) for i in range(0, static_args['sample_distances'] + 1)}
 
