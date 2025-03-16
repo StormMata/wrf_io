@@ -38,7 +38,7 @@ def convergence(params: Dict[str, Any]) -> bool:
 
     save_dir = f"{params['base_dir']}/{model}/figs/convergence"
 
-    os.makedirs(save_dir, exist_ok=False)
+    os.makedirs(save_dir, exist_ok=True)
 
     for case in casenames:
 
