@@ -381,39 +381,39 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     Te = Nt
     Nt = Te - Ts
 
-    # Wind turbine variables
-    thrust      = file2read.variables['WTP_THRUST'      ][Ts:Te,:]
-    power_aero  = file2read.variables['WTP_POWER'       ][Ts:Te,:]
-    power_mech  = file2read.variables['WTP_POWER_MECH'  ][Ts:Te,:]
-    power_gen   = file2read.variables['WTP_POWER_GEN'   ][Ts:Te,:]
-    torque_aero = file2read.variables['WTP_TORQUE'      ][Ts:Te,:]
-    ct          = file2read.variables['WTP_THRUST_COEFF'][Ts:Te,:]
-    cp          = file2read.variables['WTP_POWER_COEFF' ][Ts:Te,:]
-    v0          = file2read.variables['WTP_V0_FST_AVE'  ][Ts:Te,:]
-    rotspeed    = file2read.variables['WTP_OMEGA'       ][Ts:Te,:] * (30.0 / np.pi) # convert rad/s to rpm
-    rotorApex_x = file2read.variables['WTP_ROTORAPEX_X' ][Ts:Te,:]
-    rotorApex_y = file2read.variables['WTP_ROTORAPEX_Y' ][Ts:Te,:]
-    rotorApex_z = file2read.variables['WTP_ROTORAPEX_Z' ][Ts:Te,:]
+    # # Wind turbine variables
+    # thrust      = file2read.variables['WTP_THRUST'      ][Ts:Te,:]
+    # power_aero  = file2read.variables['WTP_POWER'       ][Ts:Te,:]
+    # power_mech  = file2read.variables['WTP_POWER_MECH'  ][Ts:Te,:]
+    # power_gen   = file2read.variables['WTP_POWER_GEN'   ][Ts:Te,:]
+    # torque_aero = file2read.variables['WTP_TORQUE'      ][Ts:Te,:]
+    # ct          = file2read.variables['WTP_THRUST_COEFF'][Ts:Te,:]
+    # cp          = file2read.variables['WTP_POWER_COEFF' ][Ts:Te,:]
+    # v0          = file2read.variables['WTP_V0_FST_AVE'  ][Ts:Te,:]
+    # rotspeed    = file2read.variables['WTP_OMEGA'       ][Ts:Te,:] * (30.0 / np.pi) # convert rad/s to rpm
+    # rotorApex_x = file2read.variables['WTP_ROTORAPEX_X' ][Ts:Te,:]
+    # rotorApex_y = file2read.variables['WTP_ROTORAPEX_Y' ][Ts:Te,:]
+    # rotorApex_z = file2read.variables['WTP_ROTORAPEX_Z' ][Ts:Te,:]
 
-    # Wind turbine blade-element variables
-    f   = (file2read.variables['WTP_F'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    fn  = (file2read.variables['WTP_FN'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    ft  = (file2read.variables['WTP_FT'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    l   = (file2read.variables['WTP_L'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    d   = (file2read.variables['WTP_D'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    cl  = (file2read.variables['WTP_CL'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    cd  = (file2read.variables['WTP_CD'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    aoa = (file2read.variables['WTP_ALPHA'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    v1  = (file2read.variables['WTP_V1'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    bpx = (file2read.variables['WTP_BLADEPOINTS_X'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    bpy = (file2read.variables['WTP_BLADEPOINTS_Y'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    bpz = (file2read.variables['WTP_BLADEPOINTS_Z'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    vrel = (file2read.variables['WTP_VREL'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    phi = (file2read.variables['WTP_PHI'          ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # # Wind turbine blade-element variables
+    # f   = (file2read.variables['WTP_F'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # fn  = (file2read.variables['WTP_FN'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # ft  = (file2read.variables['WTP_FT'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # l   = (file2read.variables['WTP_L'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # d   = (file2read.variables['WTP_D'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # cl  = (file2read.variables['WTP_CL'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # cd  = (file2read.variables['WTP_CD'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # aoa = (file2read.variables['WTP_ALPHA'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # v1  = (file2read.variables['WTP_V1'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # bpx = (file2read.variables['WTP_BLADEPOINTS_X'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # bpy = (file2read.variables['WTP_BLADEPOINTS_Y'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # bpz = (file2read.variables['WTP_BLADEPOINTS_Z'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # vrel = (file2read.variables['WTP_VREL'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # phi = (file2read.variables['WTP_PHI'          ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
-    u_WTP = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    v_WTP = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    w_WTP = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # u_WTP = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # v_WTP = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    # w_WTP = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
     var_holder = {}
 
@@ -446,7 +446,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     var_holder.update = ({
         f"ux_{i}D": u4d[:, :, :, lat_dist] +
-        (u4d[:, :, :, lat_dist + 1] - u4d[:, :, :, lat_dist]) * (distances[i] - lat_dist * dx) / dx
+        (u4d[:, :, :, lat_dist + 1] - u4d[:, :, :, lat_dist]) * (distances[f"dist_{i}"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
     })
 
