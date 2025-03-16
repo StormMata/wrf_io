@@ -26,6 +26,7 @@ def convergence(params: Dict[str, Any]) -> bool:
     Args:
         params (Dict): A dictionary of settings
     """
+
     combs     = sweep.get_combinations(params)
     formats   = sweep.determine_format(combs)
     casenames = sweep.return_case_strings(combs,formats)
@@ -188,6 +189,13 @@ def convergence(params: Dict[str, Any]) -> bool:
     return True
 
 def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
+    """
+    Fast process of WRF output data limited to turbine data
+
+    Args:
+        file (str): the path of the WRFout file to process
+        static_args (ArrayLike): Azimuthal locations over which to average
+    """
 
     save_period = static_args['save_period'] # in seconds
     remove_data = static_args['remove_data'] # in minutes;  discard first xxx minutes (e.g., ~2 flow-through times)
@@ -333,7 +341,6 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
         static_args (ArrayLike): Azimuthal locations over which to average
     """
 
-
     save_period = static_args['save_period'] # in seconds
     remove_data = static_args['remove_data'] # in minutes;  discard first xxx minutes (e.g., ~2 flow-through times)
 
@@ -422,7 +429,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     distances = {f"dist_{i}D": rotor_xloc + (i * diameter) for i in range(0, static_args['sample_distances'] + 1)}
 
     lat_distances = {
-        f"lat_dist_{i}D": int(np.floor((dist + (0.5 * dx)) / dx))
+        f"lat_{i}D": int(np.floor((dist + (0.5 * dx)) / dx))
         for i, dist in distances.items()
     }
 
@@ -445,6 +452,9 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     del u4d
     gc.collect()
+
+    print('done - marker')
+    return True
 
 # ================================================================================================================================
     # v-velocity component at different downstream locations, y-z plots:
@@ -571,6 +581,7 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     Args:
         processes (int): The number of parallel processes to use
         opt_params (Dict): A dictionary of settings including sample locations if desired
+        procType (str): Tell the function to do a fast process or full process
     """
 
     filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_00_00', recursive=True)
