@@ -444,11 +444,11 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     del u
     gc.collect()
 
-    var_holder.update = ({
+    var_holder.update({
         f"ux_{i}D": u4d[:, :, :, lat_dist] +
         (u4d[:, :, :, lat_dist + 1] - u4d[:, :, :, lat_dist]) * (distances[f"{i.replace('lat_', '')}"] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
-})
+    })
 
     del u4d
     gc.collect()
