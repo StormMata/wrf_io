@@ -446,7 +446,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     var_holder.update = ({
         f"ux_{i}D": u4d[:, :, :, lat_dist] +
-        (u4d[:, :, :, lat_dist + 1] - u4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        (u4d[:, :, :, lat_dist + 1] - u4d[:, :, :, lat_dist]) * (distances[i] - lat_dist * dx) / dx
         for i, lat_dist in lat_distances.items()
     })
 
