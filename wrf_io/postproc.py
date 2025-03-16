@@ -585,16 +585,17 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
 
     static_args = {}
 
-    static_args['save_period'] = params['save_interval']
-    static_args['remove_data'] = params['exclude_time']
-    static_args['diameter']    = float(turbprops['Rotor diameter [m]'])
-    static_args['dhub']        = float(turbprops['Hub diameter [m]'])
-    static_args['Nsct']        = int(namelist['physics'].get('wind_wtp_nSections', None))
-    static_args['Nelm']        = int(namelist['physics'].get('wind_wtp_nElements', None))
-    static_args['hub_height']  = float(turbprops['Hub height [m]'])
-    static_args['tower_xloc']  = float(turbloc[0])
-    static_args['tower_yloc']  = float(turbloc[1])
-    static_args['uinf']        = params['Ufst']
+    static_args['save_period']      = params['save_interval']
+    static_args['remove_data']      = params['exclude_time']
+    static_args['diameter']         = float(turbprops['Rotor diameter [m]'])
+    static_args['dhub']             = float(turbprops['Hub diameter [m]'])
+    static_args['Nsct']             = int(namelist['physics'].get('wind_wtp_nSections', None))
+    static_args['Nelm']             = int(namelist['physics'].get('wind_wtp_nElements', None))
+    static_args['hub_height']       = float(turbprops['Hub height [m]'])
+    static_args['tower_xloc']       = float(turbloc[0])
+    static_args['tower_yloc']       = float(turbloc[1])
+    static_args['uinf']             = params['Ufst']
+    static_args['sample_distances'] = params['slice_loc']
 
     # Process the files
     start_time = time.time()
