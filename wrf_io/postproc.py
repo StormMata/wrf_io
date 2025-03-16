@@ -429,7 +429,7 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     distances = {f"dist_{i}D": rotor_xloc + (i * diameter) for i in range(0, static_args['sample_distances'] + 1)}
 
     lat_distances = {
-        f"lat_{i}D": int(np.floor((dist + (0.5 * dx)) / dx))
+        f"lat_{i}": int(np.floor((dist + (0.5 * dx)) / dx))
         for i, dist in distances.items()
     }
 
