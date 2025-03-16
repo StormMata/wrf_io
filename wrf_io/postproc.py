@@ -203,10 +203,7 @@ def fast_process(file, static_args):
 
     case = os.path.basename(dir_path)
 
-    # console = Console()
-
-    print(f'\nWorking on [bold][bright_red]{case}[/bright_red][/bold]...')
-    # console.print(f"Working on [bold][bright_red]{case}[/bright_red][/bold]...")
+    print(f'\nWorking on {case}...')
 
     file2read = netCDF4.Dataset(file,'r',mmap=False) # type: ignore # Read Netcdf-type WRF output file
     file2read.variables.keys()
@@ -260,6 +257,8 @@ def fast_process(file, static_args):
     u = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
     v = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
     w = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+
+    file2read.close()
 
     rhub = dhub/2
     dist = 0.0
@@ -321,7 +320,241 @@ def fast_process(file, static_args):
     del var_holder
 
 
-def parproc(processes: int, params: Dict[str, Any]) -> None:
+def full_process(file, static_args):
+
+    save_period = static_args['save_period'] # in seconds
+    remove_data = static_args['remove_data'] # in minutes;  discard first xxx minutes (e.g., ~2 flow-through times)
+
+    diameter   = static_args['diameter']
+    dhub       = static_args['dhub']
+    Nsct       = static_args['Nsct']
+    Nelm       = static_args['Nelm']
+
+    #============================================================================================================
+    # Main logic [generally no edits beyond this point]
+    #============================================================================================================
+
+    dir_path, _ = os.path.split(file)
+
+    case = os.path.basename(dir_path)
+
+    print(f'\nWorking on {case}...')
+
+    file2read = netCDF4.Dataset(file,'r',mmap=False) # type: ignore # Read Netcdf-type WRF output file
+    file2read.variables.keys()
+
+    # Field variables
+    dx = file2read.getncattr('DX')
+    dy = file2read.getncattr('DY')
+    dt = file2read.getncattr('DT')
+    Nx = file2read.getncattr('WEST-EAST_PATCH_END_UNSTAG')
+    Ny = file2read.getncattr('SOUTH-NORTH_PATCH_END_UNSTAG')
+    Nz = file2read.getncattr('BOTTOM-TOP_PATCH_END_UNSTAG')
+    Nt = file2read.variables['Times'].shape[0]
+
+    if(remove_data == 0.0):
+        save_period_new = 0.0
+    else:
+        save_period_new = (remove_data * 60 / save_period) + 1 # first xxx timesteps are not included in analysis
+    process_period  = Nt - int(save_period_new) # consider only xxx timesteps in analysis
+
+    Ts = Nt - int(process_period)
+    Te = Nt
+    Nt = Te - Ts
+
+    h   = file2read.variables['HGT'][Ts:Te,:,:]
+    ph  = file2read.variables['PH' ][Ts:Te,:,:,:]
+    phb = file2read.variables['PHB'][Ts:Te,:,:,:]
+    p   = file2read.variables['P'  ][Ts:Te,:,:,:]
+    pb  = file2read.variables['PB' ][Ts:Te,:,:,:]
+    th  = file2read.variables['T'  ][Ts:Te,:,:,:]
+
+    # Wind turbine variables
+    thrust      = file2read.variables['WTP_THRUST'      ][Ts:Te,:]
+    power_aero  = file2read.variables['WTP_POWER'       ][Ts:Te,:]
+    power_mech  = file2read.variables['WTP_POWER_MECH'  ][Ts:Te,:]
+    power_gen   = file2read.variables['WTP_POWER_GEN'   ][Ts:Te,:]
+    torque_aero = file2read.variables['WTP_TORQUE'      ][Ts:Te,:]
+    ct          = file2read.variables['WTP_THRUST_COEFF'][Ts:Te,:]
+    cp          = file2read.variables['WTP_POWER_COEFF' ][Ts:Te,:]
+    v0          = file2read.variables['WTP_V0_FST_AVE'  ][Ts:Te,:]
+    rotspeed    = file2read.variables['WTP_OMEGA'       ][Ts:Te,:] * (30.0 / np.pi) # convert rad/s to rpm
+    rotorApex_x = file2read.variables['WTP_ROTORAPEX_X' ][Ts:Te,:]
+    rotorApex_y = file2read.variables['WTP_ROTORAPEX_Y' ][Ts:Te,:]
+    rotorApex_z = file2read.variables['WTP_ROTORAPEX_Z' ][Ts:Te,:]
+
+    # Wind turbine blade-element variables
+    f   = (file2read.variables['WTP_F'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    fn  = (file2read.variables['WTP_FN'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    ft  = (file2read.variables['WTP_FT'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    l   = (file2read.variables['WTP_L'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    d   = (file2read.variables['WTP_D'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    cl  = (file2read.variables['WTP_CL'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    cd  = (file2read.variables['WTP_CD'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    aoa = (file2read.variables['WTP_ALPHA'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    v1  = (file2read.variables['WTP_V1'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    bpx = (file2read.variables['WTP_BLADEPOINTS_X'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    bpy = (file2read.variables['WTP_BLADEPOINTS_Y'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    bpz = (file2read.variables['WTP_BLADEPOINTS_Z'][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    vrel = (file2read.variables['WTP_VREL'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    phi = (file2read.variables['WTP_PHI'          ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+
+    u = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    v = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    w = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+
+    file2read.close()
+
+    tower_xloc  = static_args['tower_xloc']
+    tower_yloc  = static_args['tower_yloc']
+    hub_height  = static_args['hub_height']
+
+    Lx = Nx * dx # Lx of the computational domain
+    Ly = Ny * dy # Ly of the computational domain
+
+    nrow_vect = np.arange(0,Nx)
+    ncol_vect = np.arange(0,Ny)
+    neta_vect = np.arange(0,Nz)
+    ntme_vect = np.arange(0,Nt)
+
+    h_reshape = h.reshape(Nt,1,Ny,Nx)
+
+    u4d = 0.5*(  u[:,:,:,nrow_vect] +   u[:,:,:,nrow_vect+1] ) # x-component of wind speed in 4d
+    del u
+    gc.collect()
+    v4d = 0.5*(  v[:,:,ncol_vect,:] +   v[:,:,ncol_vect+1,:] ) # y-component of wind speed in 4d
+    del v
+    gc.collect()
+    w4d = 0.5*(  w[:,neta_vect,:,:] +   w[:,neta_vect+1,:,:] ) # z-component of wind speed in 4d
+    del w
+    gc.collect()
+    phm  = 0.5*( ph[:,neta_vect,:,:] +  ph[:,neta_vect+1,:,:] )
+    del ph
+    gc.collect()
+    phbm = 0.5*(phb[:,neta_vect,:,:] + phb[:,neta_vect+1,:,:] )
+    del phb
+    gc.collect()
+    del phm,phbm,h,h_reshape
+    gc.collect()
+    p4d = p + pb # total pressure in Pa in 4d (perturbation pressure + base state pressure)
+    del p,pb
+    gc.collect()
+
+    ###########################################################################
+    rotor_xloc = np.mean(rotorApex_x)                 # Rotor x-position in meters
+    rotor_yloc = np.mean(rotorApex_y)                 # Rotor y-position in meters
+    rotor_zloc = np.mean(rotorApex_z)                 # Rotor z-position in meters
+    ###########################################################################
+    distances = {f"dist_{i}D": rotor_xloc + (i * diameter) for i in range(0, static_args['sample_distances'] + 1)}
+
+    lat_distances = {
+        f"lat_dist_{i}D": int(np.floor((dist + (0.5 * dx)) / dx))
+        for i, dist in distances.items()
+    }
+
+# ================================================================================================================================
+    # u-velocity component at different downstream locations, y-z plots:
+    ux_values = {
+        f"ux_{i}D": u4d[:, :, :, lat_dist] +
+        (u4d[:, :, :, lat_dist + 1] - u4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        for i, lat_dist in lat_distances.items()
+    }
+
+# ================================================================================================================================
+    # v-velocity component at different downstream locations, y-z plots:
+    vx_values = {
+        f"vx_{i}D": v4d[:, :, :, lat_dist] +
+        (v4d[:, :, :, lat_dist + 1] - v4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        for i, lat_dist in lat_distances.items()
+    }
+
+# ================================================================================================================================
+    # v-velocity component at different downstream locations, y-z plots:
+    wx_values = {
+        f"wx_{i}D": w4d[:, :, :, lat_dist] +
+        (w4d[:, :, :, lat_dist + 1] - w4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        for i, lat_dist in lat_distances.items()
+    }
+
+# ================================================================================================================================
+    # pressure at different downstream locations, y-z plots:
+    p_values = {
+        f"p_{i}D": w4d[:, :, :, lat_dist] +
+        (p4d[:, :, :, lat_dist + 1] - p4d[:, :, :, lat_dist]) * (distances[f"dist_{i}D"] - lat_dist * dx) / dx
+        for i, lat_dist in lat_distances.items()
+    }
+
+    ###########################################################################
+    rhub = dhub/2
+    dist = 0.0
+    dr = np.zeros(Nelm)
+    for i in range(0,Nelm):
+        dist = dist + 0.5*((diameter/2 - rhub)/Nelm)
+        dr[i] = rhub + dist
+        dist = dist + 0.5*((diameter/2 - rhub)/Nelm)
+
+    rOverR = dr/(diameter/2)
+
+    var_holder = {}
+
+    var_holder['diameter']    = diameter
+    var_holder['hub_height']  = hub_height
+    var_holder['rOverR']      = rOverR
+    var_holder['dx']          = dx
+    var_holder['dy']          = dy
+    var_holder['dt']          = dt
+    var_holder['Nx']          = Nx
+    var_holder['Ny']          = Ny
+    var_holder['Nz']          = Nz
+    var_holder['tower_xloc']  = tower_xloc
+    var_holder['tower_yloc']  = tower_yloc
+
+    var_holder['uinf']        = static_args['uinf']
+    var_holder['omega']       = rotspeed
+    var_holder['thrust']      = thrust
+    var_holder['power_aero']  = power_aero
+    var_holder['power_mech']  = power_mech
+    var_holder['power_gen']   = power_gen
+    var_holder['torque_aero'] = torque_aero
+    var_holder['ct']          = ct
+    var_holder['cp']          = cp
+    var_holder['v0']          = v0
+    var_holder['f']           = f
+    var_holder['fn']          = fn
+    var_holder['ft']          = ft
+    var_holder['l']           = l
+    var_holder['d']           = d
+    var_holder['cl']          = cl
+    var_holder['cd']          = cd
+    var_holder['aoa']         = aoa
+    var_holder['v1']          = v1
+
+    var_holder['u']           = u
+    var_holder['v']           = v
+    var_holder['w']           = w
+
+    var_holder['vrel']        = vrel
+    var_holder['phi']         = phi
+
+    var_holder['bpx']         = bpx
+    var_holder['bpy']         = bpy
+    var_holder['bpz']         = bpz
+
+    var_holder['trb_x']       = rotor_xloc
+    var_holder['trb_y']       = rotor_yloc
+    var_holder['trb_z']       = rotor_zloc
+
+    var_holder.update(ux_values)
+    var_holder.update(vx_values)
+    var_holder.update(wx_values)
+    var_holder.update(p_values)
+
+    np.savez( os.path.join(f'{dir_path}/{case}_full.npz'),**var_holder)
+    
+    del var_holder
+
+
+def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     """
     Processes the WRF output files in parallel
 
@@ -366,9 +599,21 @@ def parproc(processes: int, params: Dict[str, Any]) -> None:
     # Process the files
     start_time = time.time()
     
-    # Parallel pool
-    with Pool(processes) as pool:
-        pool.starmap(fast_process, [(file, static_args) for file in filelist])
+    if procType == 'fast':
+
+        # Parallel pool
+        with Pool(processes) as pool:
+            pool.starmap(fast_process, [(file, static_args) for file in filelist])
+
+    elif procType == 'full':  
+
+        # Parallel pool
+        with Pool(processes) as pool:
+            pool.starmap(full_process, [(file, static_args) for file in filelist])
+
+    else:
+        print(f"Error: Invalid procType '{procType}'. Expected 'fast' or 'full'.")
+        return False
 
     end_time = time.time()
 
