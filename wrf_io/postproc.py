@@ -185,7 +185,7 @@ def convergence(params):
 
     print('Done.')
 
-def fast_process(file, static_args, console):
+def fast_process(file, static_args):
 
     save_period = static_args['save_period'] # in seconds
     remove_data = static_args['remove_data'] # in minutes;  discard first xxx minutes (e.g., ~2 flow-through times)
@@ -202,6 +202,8 @@ def fast_process(file, static_args, console):
     dir_path, _ = os.path.split(file)
 
     case = os.path.basename(dir_path)
+
+    console = Console()
 
     # print(f'\nWorking on {case}...')
     console.print(f"Working on [bold][bright_red]{case}[/bright_red][/bold]...")
@@ -366,7 +368,7 @@ def parproc(processes: int, params: Dict[str, Any]) -> None:
     
     # Parallel pool
     with Pool(processes) as pool:
-        pool.starmap(fast_process, [(file, static_args, console) for file in filelist])
+        pool.starmap(fast_process, [(file, static_args) for file in filelist])
 
     end_time = time.time()
 
