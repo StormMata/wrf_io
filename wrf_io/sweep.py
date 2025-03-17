@@ -341,7 +341,7 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
         uinf = smooth_piecewise(uinf, 30, z[1]-z[0])
 
         wdir = generate_v(z, turbine.turb_diameter, pair[1])
-        wdir = -smooth_piecewise(wdir, 35, z[1]-z[0])
+        wdir = -smooth_piecewise(wdir, 30, z[1]-z[0])
     
     elif params['shear_type'] == 'Total':
 
