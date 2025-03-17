@@ -338,7 +338,7 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
     if params['shear_type'] == 'Rate':
 
         uinf = generate_u(z/turbine.turb_diameter, pair[0])
-        uinf = smooth_piecewise(uinf, 35, z[1]-z[0])
+        uinf = smooth_piecewise(uinf, 30, z[1]-z[0])
 
         wdir = generate_v(z, turbine.turb_diameter, pair[1])
         wdir = -smooth_piecewise(wdir, 35, z[1]-z[0])
@@ -493,10 +493,11 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     axs[1, 0].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
     axs[1, 0].axvline(0.0, linestyle='dotted', linewidth=1)
     axs[1, 0].axvline(params['Ufst'], linestyle='dotted', linewidth=1)
-    axs[1, 0].plot(u, z, color='#0000FF', linestyle='solid', label=r'$u_{inflow}$')
-    axs[1, 0].plot(v, z, color='#E50000', linestyle='solid', label=r'$v_{inflow}$')
+    axs[1, 0].plot(u, z, color='#0000FF', linestyle='solid', label=r'$u_{\infty}$')
+    axs[1, 0].plot(v, z, color='#E50000', linestyle='solid', label=r'$v_{\infty}$')
     axs[1, 0].set_xlim([-params['Ufst'], params['Ufst']*2])
     axs[1, 0].set_ylim([0, namelist.ztop])
+    axs[1, 0].legend()
     axs[1, 0].set_xticks(np.arange(-8, params['Ufst']+10, 4))
     # axs[1, 0].set_yticks(np.arange(min(z), max(z)+250.0, 250.0))
     axs[1, 0].set_xlabel(r'$u_{i}~[\textrm{m~s$^{-1}$}]$')
