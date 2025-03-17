@@ -508,14 +508,14 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     axs[1, 1].axvline(270.0, linestyle='dotted', linewidth=1)
     axs[1, 1].plot(wdir, z, color='#006400', linestyle='solid', label=r'_nolegend_')
 
-    test_z    = np.linspace((-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter), 20)
-
     if params['shear_type'] == 'Rate':
 
+        test_z    = np.linspace((-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter), 20)
         test_line = -pair[1]/10 * test_z
 
     elif params['shear_type'] == 'Total':
 
+        test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
         test_line = np.array([pair[1]* 5, -pair[1]* 5])
 
     axs[1, 1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
@@ -605,6 +605,8 @@ def setup(params: Dict[str, Any], model) -> bool:
         # Format shear and veer values
         dir_name = return_case_strings(pair,formats)[0]
         current_path = f"{params['base_dir']}/{model_str}/{dir_name}"
+
+        print(f'Working on {dir_name}...')
 
         # Create shear + veer directory
         os.makedirs(current_path, exist_ok=False)
