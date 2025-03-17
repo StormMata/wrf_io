@@ -22,7 +22,7 @@ plt.rcParams['figure.dpi'] = 500
 Namelist = namedtuple('Namelist', [
     'run_days', 'run_hrs', 'run_mins', 'run_secs', 'time_step',
     'outer_dx', 'outer_dy', 'inner_dx', 'inner_dy', 'outer_e_we', 'outer_e_sn',
-    'ztop', 'inner_e_we', 'inner_e_sn', 'e_vert', 'i_parent_start',
+    'e_vert', 'ztop', 'inner_e_we', 'inner_e_sn', 'e_vert', 'i_parent_start',
     'j_parent_start', 'parent_grd_rat', 'time_step_rat', 'nproc_x', 'nproc_y',
     'nSections', 'nElements', 'nSeries'
 ])
@@ -182,6 +182,8 @@ def load_variables(parsed_config: Dict[str, Any], parsed_turbine: Dict[str, Any]
             
         outer_e_we     = int(parsed_config['domains'].get('e_we', None)[0]),
         outer_e_sn     = int(parsed_config['domains'].get('e_sn', None)[0]),
+
+        e_vert         = int(parsed_config['domains'].get('e_vert', None)[0]),
         ztop           = int(parsed_config['domains'].get('ztop', None)[0]),
             
         inner_e_we     = int(parsed_config['domains'].get('e_we', None)[1]),
@@ -526,8 +528,8 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         opt_params (Dict): A dictionary of settings
     """
 
-    outer_grid = namelist.outer_e_sn * namelist.outer_e_we * namelist.ztop
-    inner_grid = namelist.inner_e_sn * namelist.inner_e_we * namelist.ztop
+    outer_grid = namelist.outer_e_sn * namelist.outer_e_we * namelist.e_vert
+    inner_grid = namelist.inner_e_sn * namelist.inner_e_we * namelist.e_vert
 
     inner_i    = namelist.i_parent_start * namelist.outer_dx   # Inner domain x-offset from the origin of the outer domain
 
