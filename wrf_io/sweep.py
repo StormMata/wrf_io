@@ -451,8 +451,8 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     # Add titles and sample data
     # axs[0, 0].set_title("Nondimensional velocity")
     # axs[0, 1].set_title("Nondimensional direction")
-    # axs[1, 0].set_title("Dimensional velocity")
-    # axs[1, 1].set_title("Dimensional direction")
+    axs[1, 0].set_title("Dimensional velocity")
+    axs[1, 1].set_title("Dimensional direction")
     # big_ax.set_title("Wind speed magnitude")
 
     axs[0, 2].axis('off')
@@ -512,6 +512,8 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
         test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
         test_line = np.array([-pair[0]* 5, pair[0]* 5])
 
+    axs[1, 0].set_title(f"$\Delta u: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [m/s]")
+
     axs[1, 0].plot(test_line + params['Ufst'], test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
     
     # wind direction
@@ -530,12 +532,14 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
 
         test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
         test_line = np.array([pair[1]* 5, -pair[1]* 5])
+    
+    axs[1, 1].set_title(f"$\beta: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [deg]")
 
     axs[1, 1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
 
     tip_deg = np.interp(turbine.hubheight-0.5*turbine.turb_diameter,z,wdir)
     diff = (((test_line[0] + 270) - tip_deg) + 180) % 360 - 180
-    axs[1, 1].text(275, 700, f"Tip error: {abs(diff):.2f} deg", fontsize=6, color="k", ha='left')
+    axs[1, 1].text(275, 700, f"Tip error: {abs(diff):.2f} [deg]", fontsize=6, color="k", ha='left')
 
     if wdir[-1] <= 180:
         axs[1, 1].text(275, 660, f"RESVERSE FLOW", fontsize=6, color='r', ha='left', fontweight='bold')
