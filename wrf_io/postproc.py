@@ -134,7 +134,7 @@ def convergence(params: Dict[str, Any]) -> None:
         # for i in range(len(thrust) - 1):
         #     error[i] = np.abs(thrust[i] - thrust[i + 1]) / np.abs(thrust[i])
 
-        rmsd = rmsd_window(thrust.filled(np.nan), 300, 10)
+        rmsd = rmsd_window(thrust.filled(np.nan)/1000, 300, 10)
 
         ax4.plot(timeseries,rmsd,linestyle='solid',linewidth=2)
         ax4.set_yscale('log')
