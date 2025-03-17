@@ -606,8 +606,6 @@ def setup(params: Dict[str, Any], model) -> bool:
         dir_name = return_case_strings(pair,formats)[0]
         current_path = f"{params['base_dir']}/{model_str}/{dir_name}"
 
-        print(f'Working on {dir_name}...')
-
         # Create shear + veer directory
         os.makedirs(current_path, exist_ok=False)
 
@@ -639,8 +637,8 @@ def setup(params: Dict[str, Any], model) -> bool:
 
         # Copy additional files
         file_map = {
-            f"{params['read_from']}/namelists/{model}_namelist.input": 'namelist.input',
-            f"{params['read_from']}/turbines/{model}_windturbines-ij.dat": 'windturbines-ij.dat',
+            f"{params['read_from']}/namelists/{model.lower()}_namelist.input": 'namelist.input',
+            f"{params['read_from']}/turbines/{model.lower()}_windturbines-ij.dat": 'windturbines-ij.dat',
             f"{params['read_from']}/shell/export_libs_load_modules_{params['system']}.sh": 'export_libs_load_modules.sh',
             f"{params['read_from']}/shell/submit_template_{params['system']}.sh": 'submit.sh',
         }
