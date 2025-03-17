@@ -353,7 +353,7 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
 
     else:
 
-        print(f'ERROR. Unsupported shear type: {params['shear_type']}.')
+        print(f'ERROR. Unsupported shear type: {params["shear_type"]}.')
         return False
 
     cor_func = interp1d(wdir, z, kind='linear')
