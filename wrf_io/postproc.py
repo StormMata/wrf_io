@@ -19,7 +19,28 @@ from numpy.typing import ArrayLike
 from matplotlib.gridspec import GridSpec
 
 
-def convergence(params: Dict[str, Any]) -> bool:
+def rmsd_window(data: ArrayLike, window: int, interval: int) -> ArrayLike:
+    """
+    Compute the root mean square deviation (RMSD)
+
+    Parameters:
+        time_series (ArrayLike): Data
+        window (int): window size in seconds
+        interval (int): Data frequency in seconds
+
+    Returns:
+        ArrayLike: RMSD of data
+    """
+    window_size = max(1, window // interval)  # Convert seconds to number of samples
+
+    def rmsd(series):
+        mean_val = series.mean()
+        return np.sqrt(((series - mean_val) ** 2).mean())
+
+    return data.rolling(window=window_size, min_periods=1).apply(rmsd, raw=True)
+
+
+def convergence(params: Dict[str, Any]) -> None:
     """
     Generate timeseries plots of power, thrust, CP, and CT for a series of runs
 
@@ -103,13 +124,15 @@ def convergence(params: Dict[str, Any]) -> bool:
         # ax3.set_ylim([6000,10000])
         ax3.legend(loc="upper right", fancybox=True, shadow=False, ncol=3, fontsize=8)
 
-        error = np.zeros(len(thrust) - 1)
-        for i in range(len(thrust) - 1):
-            error[i] = np.abs(thrust[i] - thrust[i + 1]) / np.abs(thrust[i])
+        # error = np.zeros(len(thrust) - 1)
+        # for i in range(len(thrust) - 1):
+        #     error[i] = np.abs(thrust[i] - thrust[i + 1]) / np.abs(thrust[i])
 
-        ax4.plot(timeseries[:-1],error,linestyle='solid',linewidth=2)
+        rmsd = rmsd_window(thrust, 300, 10)
+
+        ax4.plot(timeseries,rmsd,linestyle='solid',linewidth=2)
         ax4.set_yscale('log')
-        ax4.set_ylabel(r'relative change [-]')
+        ax4.set_ylabel(r'RMSD over 5-min Window [kN]')
 
         error = np.zeros(len(torque_aero) - 1)
         for i in range(len(torque_aero) - 1):
@@ -184,9 +207,7 @@ def convergence(params: Dict[str, Any]) -> bool:
 
         plt.savefig(f"{save_dir}/{case}.png", bbox_inches="tight", dpi=600)
 
-    print('Done.')
-
-    return True
+    print('\nDone.')
 
 def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
     """
