@@ -130,34 +130,23 @@ def convergence(params: Dict[str, Any]) -> None:
         # ax3.set_ylim([6000,10000])
         ax3.legend(loc="upper right", fancybox=True, shadow=False, ncol=3, fontsize=8)
 
-        # error = np.zeros(len(thrust) - 1)
-        # for i in range(len(thrust) - 1):
-        #     error[i] = np.abs(thrust[i] - thrust[i + 1]) / np.abs(thrust[i])
-
         rmsd = rmsd_window(thrust.filled(np.nan)/1000, 300, 10)
 
         ax4.plot(timeseries,rmsd,linestyle='solid',linewidth=2)
         ax4.set_yscale('log')
-        ax4.set_ylabel(r'RMSD over 5-min Window [kN]')
+        ax4.set_ylabel(r'5-min RMSD')
 
-        error = np.zeros(len(torque_aero) - 1)
-        for i in range(len(torque_aero) - 1):
-            error[i] = np.abs(torque_aero[i] - torque_aero[i + 1]) / np.abs(torque_aero[i])
+        rmsd = rmsd_window(torque_aero.filled(np.nan)/1000, 300, 10)
 
-        ax5.plot(timeseries[:-1],error,linestyle='solid',linewidth=2)
+        ax5.plot(timeseries,rmsd,linestyle='solid',linewidth=2)
         ax5.set_yscale('log')
         # ax5.set_ylabel(r'relative change [-]')
 
-        error_a = np.zeros(len(power_aero) - 1)
-        error_m = np.zeros(len(power_mech) - 1)
-        for i in range(len(power_aero) - 1):
-            error_a[i] = np.abs(power_aero[i] - power_aero[i + 1]) / np.abs(power_aero[i])
-            error_m[i] = np.abs(power_mech[i] - power_mech[i + 1]) / np.abs(power_mech[i])
+        rmsd_a = rmsd_window(power_aero.filled(np.nan)/1000, 300, 10)
+        rmsd_m = rmsd_window(power_mech.filled(np.nan)/1000, 300, 10)
 
-        # ax6.plot(timeseries[:-1],error_a,linestyle='-',linewidth=2, marker='.')
-        # ax6.plot(timeseries[:-1],error_m,linestyle='-',linewidth=2, marker='x')
-        ax6.plot(timeseries[:-1],error_a,linestyle='-',linewidth=2)
-        ax6.plot(timeseries[:-1],error_m,linestyle='-',linewidth=2)
+        ax6.plot(timeseries,rmsd_a,linestyle='-',linewidth=2)
+        ax6.plot(timeseries,rmsd_m,linestyle='-',linewidth=2)
         ax6.set_yscale('log')
         # ax6.set_ylabel(r'relative change [-]')
 
@@ -167,11 +156,11 @@ def convergence(params: Dict[str, Any]) -> None:
 
         ax8.plot(timeseries,ct,linestyle='solid',linewidth=2)
         ax8.set_ylabel(r'$C_T$ [-]')
-        ax8.set_ylim([0.7,1])
+        ax8.set_ylim([0.75,1.1])
 
         ax9.plot(timeseries,cp,linestyle='solid',linewidth=2)
         ax9.set_ylabel(r'$C_P$ [-]')
-        ax9.set_ylim([0.5,0.9])
+        ax9.set_ylim([0.4,0.6])
         ax9.yaxis.set_major_formatter(mticker.FormatStrFormatter('%.3f'))
 
         error = np.zeros(len(v0) - 1)
@@ -183,20 +172,16 @@ def convergence(params: Dict[str, Any]) -> None:
         ax10.set_ylabel(r'relative change [-]')
         ax10.set_xlabel(r'Time [min]')
 
-        error = np.zeros(len(ct) - 1)
-        for i in range(len(ct) - 1):
-            error[i] = np.abs(ct[i] - ct[i + 1]) / np.abs(ct[i])
+        rmsd = rmsd_window(ct.filled(np.nan), 300, 10)
 
-        ax11.plot(timeseries[:-1],error,linestyle='solid',linewidth=2)
+        ax11.plot(timeseries,rmsd,linestyle='solid',linewidth=2)
         ax11.set_yscale('log')
         # ax8.set_ylabel(r'relative change [-]')
         ax11.set_xlabel(r'Time [min]')
 
-        error = np.zeros(len(cp) - 1)
-        for i in range(len(cp) - 1):
-            error[i] = np.abs(cp[i] - cp[i + 1]) / np.abs(cp[i])
+        rmsd = rmsd_window(cp.filled(np.nan), 300, 10)
 
-        ax12.plot(timeseries[:-1],error,linestyle='solid',linewidth=2)
+        ax12.plot(timeseries,rmsd,linestyle='solid',linewidth=2)
         ax12.set_yscale('log')
         # ax8.set_ylabel(r'relative change [-]')
         ax12.set_xlabel(r'Time [min]')
