@@ -160,16 +160,14 @@ def convergence(params: Dict[str, Any]) -> None:
 
         ax9.plot(timeseries,cp,linestyle='solid',linewidth=2)
         ax9.set_ylabel(r'$C_P$ [-]')
-        ax9.set_ylim([0.4,0.6])
+        ax9.set_ylim([0.45,0.65])
         ax9.yaxis.set_major_formatter(mticker.FormatStrFormatter('%.3f'))
 
-        error = np.zeros(len(v0) - 1)
-        for i in range(len(v0) - 1):
-            error[i] = np.abs(v0[i] - v0[i + 1]) / np.abs(v0[i])
+        rmsd = rmsd_window(v0.filled(np.nan), 300, 10)
 
-        ax10.plot(timeseries[:-1],error,linestyle='solid',linewidth=2)
+        ax10.plot(timeseries,rmsd,linestyle='solid',linewidth=2)
         ax10.set_yscale('log')
-        ax10.set_ylabel(r'relative change [-]')
+        ax10.set_ylabel(r'5-min RMSD')
         ax10.set_xlabel(r'Time [min]')
 
         rmsd = rmsd_window(ct.filled(np.nan), 300, 10)
