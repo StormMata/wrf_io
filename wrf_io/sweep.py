@@ -505,7 +505,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     if params['shear_type'] == 'Rate':
 
         test_z    = np.linspace((-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter), 20)
-        test_line = -pair[0]/10 * params['Ufst'] * test_z
+        test_line = pair[0]/10 * params['Ufst'] * test_z / turbine.turb_diameter
 
     elif params['shear_type'] == 'Total':
 
