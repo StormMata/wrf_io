@@ -421,7 +421,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
         pair (Dict): The shear,veer pair
         params (Dict): A dictionary of settings
         turbine (Dict): A dictionary of turbine parameters
-        
+
     """
     # Create a figure with a custom gridspec layout
 
@@ -463,8 +463,8 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     axs[0, 0].axhline(-0.5, linestyle='dashed', linewidth=1, dashes=(8, 3))
     axs[0, 0].axhline(0, linestyle='dotted', linewidth=1)
     axs[0, 0].axhline(0.5,  linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[0, 0].axvline(0, linestyle='dotted', linewidth=1)
-    axs[0, 0].axvline(1, linestyle='dotted', linewidth=1)
+    axs[0, 0].axvline((params['Ufst']/params['Ufst'])-1, linestyle='dotted', linewidth=1)
+    axs[0, 0].axvline(params['Ufst']/params['Ufst'], linestyle='dotted', linewidth=1)
     axs[0, 0].plot(uinf, znondim, color='#0000FF', linestyle='solid', label=r'$u_{inflow}$')
     axs[0, 0].plot(vinf, znondim, color='#E50000', linestyle='solid', label=r'$v_{inflow}$')
     axs[0, 0].set_xlim([-1.0, 2.0])
@@ -507,8 +507,17 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     axs[1, 1].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
     axs[1, 1].axvline(270.0, linestyle='dotted', linewidth=1)
     axs[1, 1].plot(wdir, z, color='#006400', linestyle='solid', label=r'_nolegend_')
+
     test_z    = np.linspace((-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter), 20)
-    test_line = -pair[1]/10 * test_z
+
+    if params['shear_type'] == 'Rate':
+
+        test_line = -pair[1]/10 * test_z
+
+    elif params['shear_type'] == 'Total':
+
+        test_line = np.array([pair[1]* 5, -pair[1]* 5])
+
     axs[1, 1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
 
     tip_deg = np.interp(turbine.hubheight-0.5*turbine.turb_diameter,z,wdir)
