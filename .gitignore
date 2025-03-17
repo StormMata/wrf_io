@@ -3,6 +3,7 @@ wrf_io.egg-info/
 wrf_io/__pycache__/
 .eggs/
 build/
+.pytest_cache/
 
 # Compiled Object files
 *.slo
