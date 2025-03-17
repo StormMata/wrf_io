@@ -511,7 +511,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     elif params['shear_type'] == 'Total':
 
         test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
-        test_line = np.array([-pair[0]* 5, pair[0]* 5])
+        test_line = np.array([-pair[0]/10* 5, pair[0]/10* 5])
 
     axs[1, 0].set_title(rf"$\Delta u: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [m/s]")
 
