@@ -673,6 +673,7 @@ def setup(params: Dict[str, Any], model) -> bool:
             "{PH_ALLOCATION}": f"{params['allocation']}",
             "{PH_NTASKS}": ntasks,
             "{PH_TIME}": f"{params['runtime']}",
+            "{PH_PARTITION}": f"{params['partition']}",
         }
         for key, val in replacements.items():
             run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
