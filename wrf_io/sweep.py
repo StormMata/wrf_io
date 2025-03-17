@@ -562,22 +562,22 @@ def setup(params: Dict[str, Any], model) -> bool:
 
     formats = determine_format(combinations)
 
-    model = params['rotor_model'].lower() + f'_sweep'
+    model_str = params['rotor_model'].lower() + f'_sweep'
 
     # Initialize the success flag
     success = True
 
     # Check if the top directory already exists
-    top_dir = f"{params['base_dir']}/{model}"
+    top_dir = f"{params['base_dir']}/{model_str}"
     if os.path.exists(top_dir):
         print(f"Directory {top_dir} already exists.")
         return False 
     
     # Make top directory
-    os.makedirs(f"{params['base_dir']}/{model}/figs", exist_ok=False)
+    os.makedirs(f"{params['base_dir']}/{model_str}/figs", exist_ok=False)
 
     # Create batch submit file if requested
-    batch_file_path = f"{params['base_dir']}/submit_group_{model}.sh"
+    batch_file_path = f"{params['base_dir']}/submit_group_{model_str}.sh"
 
     if params['batch_submit']:
         with open(batch_file_path, 'w') as batch_file:
@@ -604,13 +604,13 @@ def setup(params: Dict[str, Any], model) -> bool:
 
         # Format shear and veer values
         dir_name = return_case_strings(pair,formats)[0]
-        current_path = f"{params['base_dir']}/{model}/{dir_name}"
+        current_path = f"{params['base_dir']}/{model_str}/{dir_name}"
 
         # Create shear + veer directory
         os.makedirs(current_path, exist_ok=False)
 
         # Create sounding file
-        create_sounding(current_path, f"{params['base_dir']}/{model}/figs", dir_name, params, namelist, turbtuple, pair)
+        create_sounding(current_path, f"{params['base_dir']}/{model_str}/figs", dir_name, params, namelist, turbtuple, pair)
 
         # Create symbolic links the executables
         create_symlinks(params['wrf_path'], current_path)
@@ -656,7 +656,6 @@ def setup(params: Dict[str, Any], model) -> bool:
         for key, val in replacements.items():
             run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
             run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
-            # pass
 
         if params['batch_submit']:
             with open(batch_file_path, 'a') as batch_file:

@@ -6,11 +6,11 @@ import numpy as np
 import scipy.signal as signal
 import matplotlib.pyplot as plt
 
-from rich.live import Live
 from wrf_io import preproc
 from rich.table import Table
 from itertools import product
 from rich.console import Console
+from scipy.interpolate import interp1d
 from typing import Dict, Any, List, Tuple
 
 
@@ -43,6 +43,7 @@ def summary_table(params: dict) -> None:
 
     console.print(table)
 
+
 def format_value(val: float, int_digits: int, frac_digits: int) -> str:
     """
     Format directory name values with the following rules:
@@ -66,6 +67,7 @@ def format_value(val: float, int_digits: int, frac_digits: int) -> str:
     # Add 'n' for negative values or return the positive string
     return f"n{formatted}" if val < 0 else formatted
 
+
 def get_combinations(params: Dict[str, Any]) -> list:
     """
     Get the full list of shear/veer combinations as a list for iterating over
@@ -80,6 +82,7 @@ def get_combinations(params: Dict[str, Any]) -> list:
     combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
 
     return combinations
+
 
 def determine_format(pairs: List[Tuple[float, float]]) -> Tuple[int, int]:
     """
@@ -99,6 +102,7 @@ def determine_format(pairs: List[Tuple[float, float]]) -> Tuple[int, int]:
     max_frac_digits = max(len(str(val).split('.')[-1]) if '.' in str(val) else 0 for val in all_values)
     
     return max_int_digits, max_frac_digits
+
 
 def return_case_strings(pairs, format_specs):
     """
@@ -127,11 +131,13 @@ def return_case_strings(pairs, format_specs):
     
     return case_strings
 
+
 def run_subprocess(command: List[str], mac_flag = False) -> None:
     """Run subprocess commands with OS compatibility."""
     if platform.system() == "Darwin" and mac_flag:
         command.insert(2, "")
     subprocess.run(command, check = True)
+
 
 def create_symlinks(wrf_path: str, target_dir: str) -> None:
     """Create symbolic links in the target directory."""
@@ -145,6 +151,7 @@ def create_symlinks(wrf_path: str, target_dir: str) -> None:
     for link in links:
         subprocess.run([f"ln -s {link} {target_dir}"], shell = True)
 
+
 def copy_files(source: str, destination: str, dirs_exist_ok = True) -> None:
     """Copy files and directories from source to destination."""
     if os.path.isdir(source):
@@ -152,8 +159,19 @@ def copy_files(source: str, destination: str, dirs_exist_ok = True) -> None:
     else:
         shutil.copy2(source, destination)
 
-def generate_v(x: np.ndarray, D: float, shear: float) -> np.ndarray:
 
+def generate_v(x: np.ndarray, D: float, shear: float) -> np.ndarray:
+    """
+    Generate lateral (v) velocity component given a shear RATE
+
+    Args:
+        x (ArrayLike): An array of vertical (z) positions
+        D (float): Turbine diameter
+        shear (float): a shear rate
+
+    Returns:
+        ArrayLike: Array of lateral velocities at each x location
+    """
     # Define the regions
     x1, x2 = -(D/2) * 1.75 , (D/2) * 1.75 # Region boundaries
 
@@ -168,7 +186,17 @@ def generate_v(x: np.ndarray, D: float, shear: float) -> np.ndarray:
         [value_region1, lambda x: shear/10 * x, value_region3],
     )
 
+
 def generate_u(x: np.ndarray, shear: float) -> np.ndarray:
+    """
+    Generate streamwise (u) velocity component given a shear RATE
+
+    Args:
+        x (ArrayLike): An array of vertical (z) positions
+        shear (float): a shear rate
+    Returns:
+        ArrayLike: Array of streamwise velocities at each x location
+    """
     # Define the regions
     x1, x2 = -(1/2) * 1.75 , (1/2) * 1.75 # Region boundaries
 
@@ -187,7 +215,94 @@ def generate_u(x: np.ndarray, shear: float) -> np.ndarray:
             [value_region1, lambda x: shear/10 * x, value_region3],
         ) + 1
 
+
+def generate_v_total(x: np.ndarray, D: float, shear: float) -> np.ndarray:
+    """
+    Generate lateral (v) velocity component given a total degree of shear over the rotor area
+
+    Args:
+        x (ArrayLike): An array of vertical (z) positions
+        D (float): Turbine diameter
+        shear (float): a shear magnitude
+    Returns:
+        ArrayLike: Array of lateral velocities at each x location
+    """
+    # Define the regions
+    x1, x2 = -(D / 2) * 2, (D / 2) * 2  # Region boundaries
+    
+    # Initialize the result as zeros
+    v = np.zeros_like(x, dtype=float)
+
+    # Region 1: x < x1
+    if shear == 0:
+        v[x < x1] = 0
+    else:
+        v[x < x1] = -(shear * 10) 
+
+    # Region 2: x1 <= x <= x2 (linear function with constant slope)
+    mask_region2 = (x >= x1) & (x <= x2)
+    v[mask_region2] = (shear * 10) / D * x[mask_region2]
+
+    # Region 3: x > x2
+    if shear == 0:
+        v[x > x2] = 0
+    else:
+        v[x > x2] = (shear * 10)
+
+    return v
+
+
+def generate_u_total(x: np.ndarray, D: float, shear: float) -> np.ndarray:
+    """
+    Generate streamwise (u) velocity component given a total degree of shear over the rotor area
+
+    Args:
+        x (ArrayLike): An array of vertical (z) positions
+        D (float): Turbine diameter
+        shear (float): a shear magnitude
+    Returns:
+        ArrayLike: Array of streamwise velocities at each x location
+    """
+    # Define the regions
+    x1, x2 = -(D / 2) * 2, (D / 2) * 2  # Region boundaries
+    
+    # Initialize the result as zeros
+    v = np.ones_like(x, dtype=float)
+
+    if shear == 0:
+        # If shear is zero, return an array of ones
+        return v
+
+    # Region 1: x < x1
+    if shear == 0:
+        v[x < x1] = 0
+    else:
+        v[x < x1] = -(shear) 
+
+    # Region 2: x1 <= x <= x2 (linear function with constant slope)
+    mask_region2 = (x >= x1) & (x <= x2)
+    v[mask_region2] = (shear) / D * x[mask_region2]
+
+    # Region 3: x > x2
+    if shear == 0:
+        v[x > x2] = 0
+    else:
+        v[x > x2] = (shear)
+
+    return 1 + v
+
+
 def smooth_piecewise(y: np.ndarray, sigma: int, dx: float) -> np.ndarray:
+    """
+    Smooth velocity components using a Gaussian convolution approach.
+
+    Args:
+        y (ArrayLike): An array of data to smooth
+        sigma (int): Kernel width
+        dx (float): Uniform spacing of data in y
+    Returns:
+        ArrayLike: Array of smoothed y data
+    """
     # Create a Gaussian kernel with a given standard deviation (sigma)
     kernel_size = int(6 * sigma / dx)  # Ensure the kernel is large enough to cover the influence of the Gaussian
     kernel = np.exp(-np.linspace(-3, 3, kernel_size)**2 / (2 * sigma**2))
@@ -203,16 +318,48 @@ def smooth_piecewise(y: np.ndarray, sigma: int, dx: float) -> np.ndarray:
     
     return y_smoothed
 
+
 def create_sounding(current_path: str, figure_path: str, figure_name: str, params: Dict[str, Any], namelist, turbine, pair) -> None:
-    """Create sounding files based on shear and veer settings"""
+    """
+    Create sounding files based on shear and veer settings.
 
-    z = np.arange(-1000, 1000, 2)
+    Args:
+        current_path (str): Path to location to create namelist file
+        figure_path (str): Path to location to save profile plots
+        figure_name (str): Formatted figure name
+        params (Dict): A dictionary of settings
+        namelist (Dict): A dictionary of simulation parameters
+        turbine (Dict): A dictionary of turbine parameters
+        pair (Dict): The shear,veer pair
+    """
 
-    uinf = generate_u(z/turbine.turb_diameter, pair[0])
-    uinf = smooth_piecewise(uinf, 30, z[1]-z[0])
+    z = np.arange(-1000, 1000, 1)
 
-    wdir = generate_v(z, turbine.turb_diameter, pair[1])
-    wdir = -smooth_piecewise(wdir, 30, z[1]-z[0])
+    if params['shear_type'] == 'Rate':
+
+        uinf = generate_u(z/turbine.turb_diameter, pair[0])
+        uinf = smooth_piecewise(uinf, 35, z[1]-z[0])
+
+        wdir = generate_v(z, turbine.turb_diameter, pair[1])
+        wdir = -smooth_piecewise(wdir, 35, z[1]-z[0])
+    
+    elif params['shear_type'] == 'Total':
+
+        uinf = generate_u_total(z, turbine.turb_diameter, pair[0]/params['Ufst'])
+        uinf = smooth_piecewise(uinf, 35, z[1]-z[0])
+
+        wdir = generate_v_total(z, turbine.turb_diameter, pair[1])
+        wdir = -smooth_piecewise(wdir, 35, z[1]-z[0])
+
+    else:
+
+        print(f'ERROR. Unsupported shear type: {params['shear_type']}.')
+        return False
+
+    cor_func = interp1d(wdir, z, kind='linear')
+    z_corr   = cor_func(0)
+    dir_func = interp1d(z-z_corr,wdir,kind='linear', fill_value='extrapolate')
+    wdir     = dir_func(z)
     
     vinf = np.full_like(z,1) * np.sin(np.deg2rad(wdir))
 
@@ -262,7 +409,20 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
         # Append the NumPy array data
         np.savetxt(f, np.stack([z_clip, theta, w, u_clip, v_clip], axis=1), fmt=fmt)
 
+
 def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Dict[str, Any], turbine, u, uinf, v, vinf, wdir, z, znondim) -> None:
+    """
+    Create plot of velocity profiles.
+
+    Args:
+        figure_path (str): Path to location to save profile plots
+        figure_name (str): Formatted figure name
+        namelist (Dict): A dictionary of simulation parameters
+        pair (Dict): The shear,veer pair
+        params (Dict): A dictionary of settings
+        turbine (Dict): A dictionary of turbine parameters
+
+    """
     # Create a figure with a custom gridspec layout
 
     latex_path = shutil.which("latex")
@@ -303,8 +463,8 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     axs[0, 0].axhline(-0.5, linestyle='dashed', linewidth=1, dashes=(8, 3))
     axs[0, 0].axhline(0, linestyle='dotted', linewidth=1)
     axs[0, 0].axhline(0.5,  linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[0, 0].axvline(0, linestyle='dotted', linewidth=1)
-    axs[0, 0].axvline(1, linestyle='dotted', linewidth=1)
+    axs[0, 0].axvline((params['Ufst']/params['Ufst'])-1, linestyle='dotted', linewidth=1)
+    axs[0, 0].axvline(params['Ufst']/params['Ufst'], linestyle='dotted', linewidth=1)
     axs[0, 0].plot(uinf, znondim, color='#0000FF', linestyle='solid', label=r'$u_{inflow}$')
     axs[0, 0].plot(vinf, znondim, color='#E50000', linestyle='solid', label=r'$v_{inflow}$')
     axs[0, 0].set_xlim([-1.0, 2.0])
@@ -347,8 +507,17 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     axs[1, 1].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
     axs[1, 1].axvline(270.0, linestyle='dotted', linewidth=1)
     axs[1, 1].plot(wdir, z, color='#006400', linestyle='solid', label=r'_nolegend_')
+
     test_z    = np.linspace((-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter), 20)
-    test_line = -pair[1]/10 * test_z
+
+    if params['shear_type'] == 'Rate':
+
+        test_line = -pair[1]/10 * test_z
+
+    elif params['shear_type'] == 'Total':
+
+        test_line = np.array([pair[1]* 5, -pair[1]* 5])
+
     axs[1, 1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
 
     tip_deg = np.interp(turbine.hubheight-0.5*turbine.turb_diameter,z,wdir)
@@ -385,6 +554,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     plt.savefig(figure_path + '/' + figure_name + '.png', bbox_inches="tight", dpi=600)
 
     plt.show()
+
 
 def setup(params: Dict[str, Any], model) -> bool:
 
