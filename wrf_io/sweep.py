@@ -512,7 +512,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
         test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
         test_line = np.array([pair[1]* 5, -pair[1]* 5])
 
-    axs[1, 1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
+    axs[1, 0].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
     
     # wind direction
     axs[1, 1].axhline(turbine.hubheight-(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
