@@ -198,6 +198,7 @@ def convergence(params: Dict[str, Any]) -> None:
 
     print('\nDone.')
 
+
 def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
     """
     Fast process of WRF output data limited to turbine data
