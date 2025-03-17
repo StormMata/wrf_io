@@ -533,7 +533,8 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
         test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
         test_line = np.array([pair[1]* 5, -pair[1]* 5])
     
-    axs[1, 1].set_title(f"$$\\beta: {abs(test_line[0]) + abs(test_line[1]):.2f}$$ [deg]")
+    axs[1, 1].set_title(rf"$\beta: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [deg]")
+
     # axs[1, 1].set_title(f"Test")
 
 
