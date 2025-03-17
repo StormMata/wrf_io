@@ -562,7 +562,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     # big_ax.axvline(0.0, linestyle='dotted', linewidth=1)
     big_ax.axvline(params['Ufst'], linestyle='dotted', linewidth=1)
     big_ax.plot((u**2 + v**2)**(0.5), z, color='#730080', linestyle='solid')
-    # big_ax.set_xlim([params['Ufst']-2, 15])
+    big_ax.set_xlim([3, 15])
     big_ax.set_ylim([0, namelist.ztop])
     # big_ax.set_xticks(np.arange(-8, Ufst+10, 4))
     # big_ax.set_yticks(np.arange(min(z), max(z)+250.0, 250.0))
