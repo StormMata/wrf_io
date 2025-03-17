@@ -31,6 +31,9 @@ def rmsd_window(data: ArrayLike, window: int, interval: int) -> ArrayLike:
     Returns:
         ArrayLike: RMSD of data
     """
+    # Convert input data to Pandas Series
+    data = pd.Series(data)
+    
     window_size = max(1, window // interval)  # Convert seconds to number of samples
 
     def rmsd(series):
