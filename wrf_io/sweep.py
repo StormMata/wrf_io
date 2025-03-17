@@ -452,7 +452,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     # axs[0, 0].set_title("Nondimensional velocity")
     # axs[0, 1].set_title("Nondimensional direction")
     axs[1, 0].set_title("Dimensional velocity")
-    axs[1, 1].set_title("Dimensional direction")
+    # axs[1, 1].set_title("Dimensional direction")
     # big_ax.set_title("Wind speed magnitude")
 
     axs[0, 2].axis('off')
@@ -533,7 +533,9 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
         test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
         test_line = np.array([pair[1]* 5, -pair[1]* 5])
     
-    axs[1, 1].set_title(f"$$\\beta: {abs(test_line[0]) + abs(test_line[1]):.2f}$$ [deg]")
+    # axs[1, 1].set_title(f"$$\\beta: {abs(test_line[0]) + abs(test_line[1]):.2f}$$ [deg]")
+    axs[1, 1].set_title(f"Test")
+
 
     axs[1, 1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
 
