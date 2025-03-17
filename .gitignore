@@ -22,4 +22,4 @@ wrf_io/__pycache__/
 
 # MacOS
 
-.DS_Store
+*.DS_Store
