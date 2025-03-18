@@ -275,9 +275,10 @@ def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
     vrel = (file2read.variables['WTP_VREL'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
     phi = (file2read.variables['WTP_PHI'          ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
-    u = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    v = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    w = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    u    = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    v    = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    w    = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    vtan = (file2read.variables['WTP_VT'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
     file2read.close()
 
@@ -328,6 +329,7 @@ def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
     var_holder['u']           = u
     var_holder['v']           = v
     var_holder['w']           = w
+    var_holder['v_tan']       = vtan
 
     var_holder['vrel']        = vrel
     var_holder['phi']         = phi
