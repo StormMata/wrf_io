@@ -660,13 +660,16 @@ def annulus_average(f: ArrayLike, theta: ArrayLike) -> ArrayLike:
     Args:
         f (ArrayLike): Spatial quantity
         theta (ArrayLike): Azimuthal locations over which to average
+    
+    Returns:
+        ArrayLike: array of annulus averages
     """
 
     X_azim = 1 / (2 * np.pi) * np.trapz(f, theta, axis=-1)
 
     return X_azim
 
-def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> ArrayLike:
+def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> float:
     """
     Compute rotor average of spatial quantity f(r,theta) over rotor
 
@@ -674,6 +677,9 @@ def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> ArrayLike:
         f (ArrayLike): Spatial quantity
         r (ArrayLike): Radial points over rotor
         theta (ArrayLike): Azimuthal points over rotor
+    
+    Returns:
+        float: rotor-averaged quantity
     """
 
     X_azim = 1 / (2 * np.pi) * np.trapz(f, theta, axis=-1)
@@ -682,7 +688,7 @@ def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> ArrayLike:
 
     return X_rotor
 
-def shapiro_correction(ind: ArrayLike, r: ArrayLike, theta: ArrayLike, delta: float) -> ArrayLike:
+def shapiro_correction(ind: ArrayLike, r: ArrayLike, theta: ArrayLike, delta: float, R: float) -> float:
     """
     Compute Shapiro correction a posteriori.
 
@@ -691,13 +697,17 @@ def shapiro_correction(ind: ArrayLike, r: ArrayLike, theta: ArrayLike, delta: fl
         r (ArrayLike): Radial points over rotor
         theta (ArrayLike): Azimuthal points over rotor
         delta (float): delta = a * sqrt(dx^2 + dy^2 + dz^2)
+        R (float): Turbine radius
+    
+    Returns
+        float: correction factor
     """
 
     a_bar = rotor_average(ind, r, theta)
 
     CT_prime_bar = 4 * a_bar / (1 - a_bar)
 
-    M = (1 + CT_prime_bar/4 * 1/(np.sqrt(np.pi * 3)) * delta/(199/2))**(-1)
+    M = (1 + CT_prime_bar/4 * 1/(np.sqrt(np.pi * 3)) * delta/R)**(-1)
 
     return M
 
@@ -708,6 +718,9 @@ def per_error(A: float, E: float) -> float:
     Args:
         A (float): Comparison value
         E (float): Reference value
+    
+    Returns:
+        float: percent error [%]
     """
 
     error = ((A - E) / E) * 100
