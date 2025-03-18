@@ -637,8 +637,9 @@ def setup(params: Dict[str, Any], model) -> bool:
         create_symlinks(params['wrf_path'], current_path)
 
         # Copy items in case template directory
-        for item in os.listdir(params['read_from']):
-            source_path = os.path.join(params['read_from'], item)
+        case_path = f"{params['read_from']}/case"
+        for item in os.listdir(case_path):
+            source_path = os.path.join(case_path, item)
             if os.path.isfile(source_path):  # Check if the item is a file
                 copy_files(source_path, os.path.join(current_path, item))
 
