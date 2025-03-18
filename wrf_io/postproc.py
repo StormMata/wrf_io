@@ -682,6 +682,25 @@ def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> ArrayLike:
 
     return X_rotor
 
+def shapiro_correction(ind: ArrayLike, r: ArrayLike, theta: ArrayLike, delta: float) -> ArrayLike:
+    """
+    Compute Shapiro correction a posteriori.
+
+    Args:
+        ind (ArrayLike): Local induction in polar coordinates r and theta
+        r (ArrayLike): Radial points over rotor
+        theta (ArrayLike): Azimuthal points over rotor
+        delta (float): delta = a * sqrt(dx^2 + dy^2 + dz^2)
+    """
+
+    a_bar = rotor_average(ind, r, theta)
+
+    CT_prime_bar = 4 * a_bar / (1 - a_bar)
+
+    M = (1 + CT_prime_bar/4 * 1/(np.sqrt(np.pi * 3)) * delta/(199/2))**(-1)
+
+    return M
+
 def per_error(A: float, E: float) -> float:
     """
     Returns the error between from reference value A and another value E
