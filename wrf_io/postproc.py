@@ -616,8 +616,8 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
 
     namelist, _ = preproc.load_variables(preproc.parse_namelist(params), preproc.parse_turbine_properties(params),preproc.parse_turbine_location(params))
 
-    print(namelist['nSections'])
-    print(namelist['nElements'])
+    print(namelist.nSections)
+    print(namelist.nElements)
 
     static_args = {}
 
