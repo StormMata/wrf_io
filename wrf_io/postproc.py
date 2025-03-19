@@ -596,6 +596,10 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
 
     filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_20_00', recursive=True)
 
+    sample_namelist = glob.glob(params['base_dir'] + '/**/namelist.input', recursive=True)[0]
+    sample_turbdb = glob.glob(params['base_dir'] + '/**/turbineProperties.tbl', recursive=True)[0]
+    sample_turbloc = glob.glob(params['base_dir'] + '/**/windturbines-ij.dat', recursive=True)[0]
+
     console = Console()
 
     output_lines = []
@@ -611,10 +615,10 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     console.print(f"Processing WRF outputs with [bold][bright_red]{processes}[/bright_red][/bold] parallel processes...")
 
     # namelist  = preproc.parse_namelist(params)
-    turbprops = preproc.parse_turbine_properties(params)
+    turbprops = preproc.parse_turbine_properties(params,sample_namelist)
     turbloc   = preproc.parse_turbine_location(params)
 
-    namelist, _ = preproc.load_variables(preproc.parse_namelist(params), preproc.parse_turbine_properties(params),preproc.parse_turbine_location(params))
+    namelist, _ = preproc.load_variables(preproc.parse_namelist(params,sample_namelist), preproc.parse_turbine_properties(params,sample_turbdb),preproc.parse_turbine_location(params,sample_turbloc))
 
     print(namelist.nSections)
     print(namelist.nElements)

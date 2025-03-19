@@ -12,7 +12,7 @@ from rich.table import Table
 from scipy import interpolate
 from rich.console import Console
 from collections import namedtuple
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from matplotlib.patches import Rectangle
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
@@ -32,7 +32,7 @@ Turbine = namedtuple('Turbine', [
 ])
 
 
-def parse_namelist(opt_params: Dict[str, Any]) -> Dict[str, Any]:
+def parse_namelist(opt_params: Dict[str, Any], override_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Parse settings in the namelist.input file.
 
@@ -47,7 +47,9 @@ def parse_namelist(opt_params: Dict[str, Any]) -> Dict[str, Any]:
     if 'name_path' in opt_params:
         file_path = opt_params['name_path']
     else:
-        file_path = opt_params['read_from'] + '/namelists/' + opt_params['rotor_model'].lower() +'_namelist.input'
+        file_path = override_path if override_path else (
+            file_path = opt_params['read_from'] + '/namelists/' + opt_params['rotor_model'].lower() +'_namelist.input'
+        )
 
     config = {}
     current_section = None
@@ -93,7 +95,7 @@ def parse_namelist(opt_params: Dict[str, Any]) -> Dict[str, Any]:
 
     return config
 
-def parse_turbine_properties(opt_params: Dict[str, Any]) -> Dict[str, Any]:
+def parse_turbine_properties(opt_params: Dict[str, Any], override_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Parse settings in the turbineProperties.tbl file.
 
@@ -103,7 +105,9 @@ def parse_turbine_properties(opt_params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         config: A dictionary of parsed values
     """
-    file_path = opt_params['read_from'] + '/case/windTurbines/' + opt_params['turb_model'] + '/turbineProperties.tbl'
+    file_path = override_path if override_path else (
+        opt_params['read_from'] + '/case/windTurbines/' + opt_params['turb_model'] + '/turbineProperties.tbl'
+    )
 
     config = {}
 
@@ -125,7 +129,7 @@ def parse_turbine_properties(opt_params: Dict[str, Any]) -> Dict[str, Any]:
 
     return config
 
-def parse_turbine_location(opt_params: Dict[str, Any]) -> Dict[str, Any]:
+def parse_turbine_location(opt_params: Dict[str, Any], override_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Parse settings in the windturbines-ij.dat file.
 
@@ -135,7 +139,9 @@ def parse_turbine_location(opt_params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         config: A dictionary of parsed values
     """
-    file_path = opt_params['read_from'] + '/turbines/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
+    file_path = override_path if override_path else (
+        file_path = opt_params['read_from'] + '/turbines/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
+    )
 
     config = []
 
