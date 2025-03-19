@@ -610,9 +610,14 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     console.print("\n".join(output_lines), highlight=False)
     console.print(f"Processing WRF outputs with [bold][bright_red]{processes}[/bright_red][/bold] parallel processes...")
 
-    namelist  = preproc.parse_namelist(params)
+    # namelist  = preproc.parse_namelist(params)
     turbprops = preproc.parse_turbine_properties(params)
     turbloc   = preproc.parse_turbine_location(params)
+
+    namelist, _ = preproc.load_variables(preproc.parse_namelist(params), preproc.parse_turbine_properties(params),preproc.parse_turbine_location(params))
+
+    print(namelist['nSections'])
+    print(namelist['nElements'])
 
     static_args = {}
 
