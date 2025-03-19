@@ -275,10 +275,10 @@ def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
     vrel = (file2read.variables['WTP_VREL'        ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
     phi = (file2read.variables['WTP_PHI'          ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
-    u    = (file2read.variables['WTP_U'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    v    = (file2read.variables['WTP_V'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    w    = (file2read.variables['WTP_W'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
-    vtan = (file2read.variables['WTP_VT'              ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    u    = (file2read.variables['WTP_U'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    v    = (file2read.variables['WTP_V'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    w    = (file2read.variables['WTP_W'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
+    vtan = (file2read.variables['WTP_VT'          ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
 
     file2read.close()
 
@@ -594,7 +594,7 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
         procType (str): Tell the function to do a fast process or full process
     """
 
-    filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_00_00', recursive=True)
+    filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_20_00', recursive=True)
 
     console = Console()
 
