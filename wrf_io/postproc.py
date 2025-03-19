@@ -614,26 +614,19 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     console.print("\n".join(output_lines), highlight=False)
     console.print(f"Processing WRF outputs with [bold][bright_red]{processes}[/bright_red][/bold] parallel processes...")
 
-    # namelist  = preproc.parse_namelist(params)
-    turbprops = preproc.parse_turbine_properties(params,sample_namelist)
-    turbloc   = preproc.parse_turbine_location(params)
-
-    namelist, _ = preproc.load_variables(preproc.parse_namelist(params,sample_namelist), preproc.parse_turbine_properties(params,sample_turbdb),preproc.parse_turbine_location(params,sample_turbloc))
-
-    print(namelist.nSections)
-    print(namelist.nElements)
+    namelist, turbprops = preproc.load_variables(preproc.parse_namelist(params,sample_namelist), preproc.parse_turbine_properties(params,sample_turbdb),preproc.parse_turbine_location(params,sample_turbloc))
 
     static_args = {}
 
     static_args['save_period']      = params['save_interval']
     static_args['remove_data']      = params['exclude_time']
-    static_args['diameter']         = float(turbprops['Rotor diameter [m]'])
-    static_args['dhub']             = float(turbprops['Hub diameter [m]'])
-    static_args['Nsct']             = int(namelist['physics'].get('wind_wtp_nSections', None))
-    static_args['Nelm']             = int(namelist['physics'].get('wind_wtp_nElements', None))
-    static_args['hub_height']       = float(turbprops['Hub height [m]'])
-    static_args['tower_xloc']       = float(turbloc[0])
-    static_args['tower_yloc']       = float(turbloc[1])
+    static_args['diameter']         = turbprops.turb_diameter
+    static_args['dhub']             = turbprops.hub_diameter
+    static_args['Nsct']             = namelist.nSections
+    static_args['Nelm']             = namelist.nElements
+    static_args['hub_height']       = turbprops.hubheight
+    static_args['tower_xloc']       = turbprops.turb_x
+    static_args['tower_yloc']       = turbprops.turb_y
     static_args['uinf']             = params['Ufst']
     static_args['sample_distances'] = params['slice_loc']
 
