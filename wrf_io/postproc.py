@@ -628,6 +628,9 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     static_args['uinf']             = params['Ufst']
     static_args['sample_distances'] = params['slice_loc']
 
+    print(static_args['Nsct'])
+    print(static_args['Nelm'])
+
     # Process the files
     start_time = time.time()
     
