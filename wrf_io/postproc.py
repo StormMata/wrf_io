@@ -594,7 +594,7 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
         procType (str): Tell the function to do a fast process or full process
     """
 
-    filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_20_00', recursive=True)
+    filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_00_00', recursive=True)
 
     sample_namelist = glob.glob(params['base_dir'] + '/**/namelist.input', recursive=True)[0]
     sample_turbdb = glob.glob(params['base_dir'] + '/**/turbineProperties.tbl', recursive=True)[0]
@@ -629,9 +629,6 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     static_args['tower_yloc']       = turbprops.turb_y
     static_args['uinf']             = params['Ufst']
     static_args['sample_distances'] = params['slice_loc']
-
-    print(static_args['Nsct'])
-    print(static_args['Nelm'])
 
     # Process the files
     start_time = time.time()
