@@ -48,7 +48,7 @@ def parse_namelist(opt_params: Dict[str, Any], override_path: Optional[str] = No
         file_path = opt_params['name_path']
     else:
         file_path = override_path if override_path else (
-            file_path = opt_params['read_from'] + '/namelists/' + opt_params['rotor_model'].lower() +'_namelist.input'
+            opt_params['read_from'] + '/namelists/' + opt_params['rotor_model'].lower() +'_namelist.input'
         )
 
     config = {}
@@ -140,7 +140,7 @@ def parse_turbine_location(opt_params: Dict[str, Any], override_path: Optional[s
         config: A dictionary of parsed values
     """
     file_path = override_path if override_path else (
-        file_path = opt_params['read_from'] + '/turbines/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
+        opt_params['read_from'] + '/turbines/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
     )
 
     config = []
