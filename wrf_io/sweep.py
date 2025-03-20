@@ -11,7 +11,7 @@ from rich.table import Table
 from itertools import product
 from rich.console import Console
 from scipy.interpolate import interp1d
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 
 
 def summary_table(params: dict) -> None:
@@ -68,18 +68,32 @@ def format_value(val: float, int_digits: int, frac_digits: int) -> str:
     return f"n{formatted}" if val < 0 else formatted
 
 
-def get_combinations(params: Dict[str, Any]) -> list:
+def get_combinations(params: Dict[str, Any], D: Optional[float] = None) -> list:
     """
     Get the full list of shear/veer combinations as a list for iterating over
     
     Args:
         params (Dict): A dictionary of discrete shear and veer values and excluded pairs if necessary
+        D (float): Turbine diameter. If params['shear_type'] == 'Total', this is used to calculate the equivalent shear rate
     
     Returns:
         list: a list of combinations
     """
 
-    combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
+    if params['shear_type'] == 'Rate':
+
+        combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
+
+    elif params['shear_type'] == 'Total' and D is not None:
+
+        equivalent_shear_rate = params['shear'] / D
+        equivalent_veer_rate  = params['veer'] / D
+
+        combinations = [pair for pair in product(equivalent_shear_rate, equivalent_veer_rate) if pair not in params['excluded_pairs']]
+
+    else:
+
+        print(f'ERROR. Unrecognized shear type {params['shear_type']}. Cannot compute equivalent rate.')
 
     return combinations
 
@@ -579,6 +593,8 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
 
 def setup(params: Dict[str, Any], model) -> bool:
 
+    namelist, turbtuple = preproc.validate(opt_params=params)
+
     combinations = get_combinations(params=params)
 
     formats = determine_format(combinations)
@@ -604,17 +620,7 @@ def setup(params: Dict[str, Any], model) -> bool:
         with open(batch_file_path, 'w') as batch_file:
             batch_file.write("#!/bin/bash\n\n")
 
-
-    namelist, turbtuple = preproc.validate(opt_params=params)
-
     ntasks = namelist.nproc_x * namelist.nproc_y
-
-    if turbtuple.rot_dir == 1:
-        rot_dir = 'cw'
-    if turbtuple.rot_dir == -1:
-        rot_dir = 'ccw'
-    if turbtuple.rot_dir == 0:
-        rot_dir = 'irr'
 
     counter = 1
 
@@ -633,18 +639,18 @@ def setup(params: Dict[str, Any], model) -> bool:
         # Create sounding file
         create_sounding(current_path, f"{params['base_dir']}/{model_str}/figs", dir_name, params, namelist, turbtuple, pair)
 
-        # Create symbolic links the executables
+        # Create symbolic links for the executables
         create_symlinks(params['wrf_path'], current_path)
 
         # Copy items in case template directory
-        case_path = f"{params['read_from']}/case"
+        case_path = f"{params['template_path']}/case"
         for item in os.listdir(case_path):
             source_path = os.path.join(case_path, item)
             if os.path.isfile(source_path):  # Check if the item is a file
                 copy_files(source_path, os.path.join(current_path, item))
 
         # Copy requested turbine directory
-        turb_source_dir = f"{params['read_from']}/case/windTurbines/{params['turb_model']}"
+        turb_source_dir = f"{params['template_path']}/case/windTurbines/{params['turb_model']}"
         destination_dir = os.path.join(current_path, 'windTurbines', params['turb_model'])
 
         if os.path.exists(turb_source_dir) and os.path.isdir(turb_source_dir):
@@ -655,22 +661,24 @@ def setup(params: Dict[str, Any], model) -> bool:
             return False
         
         # Copy wind turbine database
-        shutil.copy2(f"{params['read_from']}/case/windTurbines/windTurbineTypes.dat", os.path.join(current_path, 'windTurbines'))
+        shutil.copy2(f"{params['template_path']}/case/windTurbines/windTurbineTypes.dat", os.path.join(current_path, 'windTurbines'))
 
         # Copy additional files
         file_map = {
-            f"{params['read_from']}/namelists/{model.lower()}_namelist.input": 'namelist.input',
-            f"{params['read_from']}/turbines/{model.lower()}_windturbines-ij.dat": 'windturbines-ij.dat',
-            f"{params['read_from']}/shell/export_libs_load_modules_{params['system']}.sh": 'export_libs_load_modules.sh',
-            f"{params['read_from']}/shell/submit_template_{params['system']}.sh": 'submit.sh',
+            f"{params['template_path']}/namelists/{params['turb_model']}/{model.lower()}_namelist.input": 'namelist.input',
+            f"{params['template_path']}/turbines/{params['turb_model']}/{model.lower()}_windturbines-ij.dat": 'windturbines-ij.dat',
+            f"{params['template_path']}/shell/export_libs_load_modules_{params['system']}.sh": 'export_libs_load_modules.sh',
+            f"{params['template_path']}/shell/submit_template_{params['system']}.sh": 'submit.sh',
         }
         for src, dst in file_map.items():
             copy_files(src, os.path.join(current_path, dst))
 
         # Update file placeholders with requested values
+        turb_jobname = params['turb_model'].replace("iea", "").replace("MW", "").strip()
         replacements = {
             "lib_path": params['wrf_path'].replace("/", "\\/"),
-            "{PH_JOB_NAME}": f"{dir_name}_{model}_{rot_dir}",
+            "{PH_NNODES}": params['num_nodes'],
+            "{PH_JOB_NAME}": f"{turb_jobname}_{dir_name}",
             "{PH_ALLOCATION}": f"{params['allocation']}",
             "{PH_NTASKS}": ntasks,
             "{PH_TIME}": f"{params['runtime']}",

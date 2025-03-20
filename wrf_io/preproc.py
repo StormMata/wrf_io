@@ -722,7 +722,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
             table.add_row(Text("[shear, veer]"), "Unspecified type", "")
         table.add_row("", "", "")
         for i in range(len(combs)):
-            table.add_row("", f"[{combs[i][0]},{combs[i][1]}]", "")
+            table.add_row("", f"[{combs[i][0]:2.2f},{combs[i][1]:2.2f}]", "")
         table.add_row("", "", "", end_section=True)
 
     # Print the table to the console
