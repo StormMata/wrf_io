@@ -48,7 +48,7 @@ def parse_namelist(opt_params: Dict[str, Any], override_path: Optional[str] = No
         file_path = opt_params['name_path']
     else:
         file_path = override_path if override_path else (
-            opt_params['read_from'] + '/namelists/' + opt_params['rotor_model'].lower() +'_namelist.input'
+            opt_params['template_path'] + '/namelists/' + f'{opt_params['turb_model']}/' + opt_params['rotor_model'].lower() +'_namelist.input'
         )
 
     config = {}
@@ -106,7 +106,7 @@ def parse_turbine_properties(opt_params: Dict[str, Any], override_path: Optional
         config: A dictionary of parsed values
     """
     file_path = override_path if override_path else (
-        opt_params['read_from'] + '/case/windTurbines/' + opt_params['turb_model'] + '/turbineProperties.tbl'
+        opt_params['template_path'] + '/case/windTurbines/' + opt_params['turb_model'] + '/turbineProperties.tbl'
     )
 
     config = {}
@@ -140,7 +140,7 @@ def parse_turbine_location(opt_params: Dict[str, Any], override_path: Optional[s
         config: A dictionary of parsed values
     """
     file_path = override_path if override_path else (
-        opt_params['read_from'] + '/turbines/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
+        opt_params['template_path'] + '/turbines/' + f'{opt_params['turb_model']}/' + opt_params['rotor_model'].lower() + '_windturbines-ij.dat'
     )
 
     config = []
@@ -706,23 +706,47 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
     #INFLOW
     if 'prof_type' in opt_params and opt_params['prof_type']=='Idealized':
 
-        combs = sweep.get_combinations(opt_params)
+        combs = sweep.get_combinations(opt_params, force=True)
 
         table.add_row("[bold underline]INFLOW[/bold underline]", "", "")
         table.add_row("", "", "")
-        table.add_row("Profile type", f"{opt_params['prof_type']}", "")
+        table.add_row("Profile type", f"Linear {opt_params['prof_type']}", "")
         table.add_row("", "", "")
         table.add_row("Total cases", f"{len(combs)}", "")
         table.add_row("", "", "")
+
         if opt_params['shear_type']=='Rate':
+
             table.add_row(Text("[shear, veer]"), "Rate [(unit)/D]", "")
-        elif opt_params['shear_type']=='Total':
+            table.add_row("", "", "")
+            combs_rate = sweep.get_combinations(opt_params)
+            for i in range(len(combs_rate)):
+                table.add_row("", f"[{combs_rate[i][0]:2.2f},{combs_rate[i][1]:2.2f}]", "")
+
+            table.add_row("", "", "")
+
             table.add_row(Text("[shear, veer]"), "Total [(unit)]", "")
-        else:
-            table.add_row(Text("[shear, veer]"), "Unspecified type", "")
-        table.add_row("", "", "")
-        for i in range(len(combs)):
-            table.add_row("", f"[{combs[i][0]:2.2f},{combs[i][1]:2.2f}]", "")
+            table.add_row("", "", "")
+            combs_total = [(shear * turbine.turb_diameter, veer * turbine.turb_diameter) for shear, veer in sweep.get_combinations(opt_params)]
+            for shear, veer in combs_total:
+                table.add_row("", f"[{shear:4.1f},{veer:2.0f}]", "")
+
+        if opt_params['shear_type']=='Total':
+
+            table.add_row(Text("[shear, veer]"), "Rate [(unit)/D]", "")
+            table.add_row("", "", "")
+            combs_rate = sweep.get_combinations(opt_params, turbine.turb_diameter)
+            for i in range(len(combs_rate)):
+                table.add_row("", f"[{combs_rate[i][0]:2.2f},{combs_rate[i][1]:2.2f}]", "")
+
+            table.add_row("", "", "")
+
+            table.add_row(Text("[shear, veer]"), "Total [(unit)]", "")
+            table.add_row("", "", "")
+            combs_total = sweep.get_combinations(opt_params, force=True)
+            for shear, veer in combs_total:
+                table.add_row("", f"[{shear:4.1f},{veer:2.0f}]", "")
+
         table.add_row("", "", "", end_section=True)
 
     # Print the table to the console

@@ -1,6 +1,5 @@
 import gc
 import os
-# import wrf
 import time
 import glob
 import netCDF4

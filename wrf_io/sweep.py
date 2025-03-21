@@ -61,14 +61,18 @@ def format_value(val: float, int_digits: int, frac_digits: int) -> str:
         str: The formatted string.
     """
 
-    # Format the value with specified digits
-    formatted = f"{abs(val):0{int_digits}.{frac_digits}f}".replace('.', '')
-    
+    if int_digits == 0:
+        # Format with only fractional part
+        formatted = f"{abs(val):.{frac_digits}f}".split('.')[-1]  # Keep only decimal part
+    else:
+        # Standard formatting with integer and fractional part
+        formatted = f"{abs(val):0{int_digits}.{frac_digits}f}".replace('.', '')
+
     # Add 'n' for negative values or return the positive string
     return f"n{formatted}" if val < 0 else formatted
 
 
-def get_combinations(params: Dict[str, Any], D: Optional[float] = None) -> list:
+def get_combinations(params: Dict[str, Any], D: Optional[float] = None, force: Optional[bool] = False, precision: Optional[int] = 6) -> list:
     """
     Get the full list of shear/veer combinations as a list for iterating over
     
@@ -84,16 +88,24 @@ def get_combinations(params: Dict[str, Any], D: Optional[float] = None) -> list:
 
         combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
 
-    elif params['shear_type'] == 'Total' and D is not None:
+    elif params['shear_type'] == 'Total':
 
-        equivalent_shear_rate = params['shear'] / D
-        equivalent_veer_rate  = params['veer'] / D
+        if force:
 
-        combinations = [pair for pair in product(equivalent_shear_rate, equivalent_veer_rate) if pair not in params['excluded_pairs']]
+            combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
+
+        else:
+            if D is None:
+                raise ValueError("ERROR: Turbine diameter 'D' must be provided when 'shear_type' is 'Total'.")
+
+            equivalent_shear_rate = np.round(np.array(params['shear']) / D, precision)
+            equivalent_veer_rate  = np.round(np.array(params['veer']) / D, precision)
+
+            combinations = [pair for pair in product(equivalent_shear_rate, equivalent_veer_rate) if pair not in params['excluded_pairs']]
 
     else:
 
-        print(f'ERROR. Unrecognized shear type {params['shear_type']}. Cannot compute equivalent rate.')
+        raise ValueError(f'ERROR. Unrecognized shear type "{params['shear_type']}". Cannot compute equivalent rate.')
 
     return combinations
 
@@ -111,9 +123,14 @@ def determine_format(pairs: List[Tuple[float, float]]) -> Tuple[int, int]:
 
     all_values = [val for pair in pairs for val in pair]  # Flatten the list of tuples
     
-    # Determine max integer and fractional digits
-    max_int_digits  = max(len(str(int(abs(val)))) for val in all_values)
+    # Determine max fractional digits
     max_frac_digits = max(len(str(val).split('.')[-1]) if '.' in str(val) else 0 for val in all_values)
+
+    # Check if all integer parts are zero
+    if all(int(abs(val)) == 0 for val in all_values):
+        max_int_digits = 0
+    else:
+        max_int_digits = max(len(str(int(abs(val)))) for val in all_values)
     
     return max_int_digits, max_frac_digits
 
@@ -174,7 +191,7 @@ def copy_files(source: str, destination: str, dirs_exist_ok = True) -> None:
         shutil.copy2(source, destination)
 
 
-def generate_v(x: np.ndarray, D: float, shear: float) -> np.ndarray:
+def generate_profile(x: np.ndarray, D: float, shear: float) -> np.ndarray:
     """
     Generate lateral (v) velocity component given a shear RATE
 
@@ -187,124 +204,18 @@ def generate_v(x: np.ndarray, D: float, shear: float) -> np.ndarray:
         ArrayLike: Array of lateral velocities at each x location
     """
     # Define the regions
-    x1, x2 = -(D/2) * 1.75 , (D/2) * 1.75 # Region boundaries
+    x1, x2 = -(D/2) * 1.75, (D/2) * 1.75 # Region boundaries
 
     # Calculate the constant values based on Region 2
-    value_region1 = shear/10 * x1  # f(x_1) for Region 1
-    value_region3 = shear/10 * x2  # f(x_2) for Region 3
+    value_region1 = shear * x1  # f(x_1) for Region 1
+    value_region3 = shear * x2  # f(x_2) for Region 3
 
     # Define the piecewise behavior
-    return np.piecewise(
+    return np.array(np.piecewise(
         x,
         [x < x1, (x >= x1) & (x <= x2), x > x2],
-        [value_region1, lambda x: shear/10 * x, value_region3],
-    )
-
-
-def generate_u(x: np.ndarray, shear: float) -> np.ndarray:
-    """
-    Generate streamwise (u) velocity component given a shear RATE
-
-    Args:
-        x (ArrayLike): An array of vertical (z) positions
-        shear (float): a shear rate
-    Returns:
-        ArrayLike: Array of streamwise velocities at each x location
-    """
-    # Define the regions
-    x1, x2 = -(1/2) * 1.75 , (1/2) * 1.75 # Region boundaries
-
-    # Calculate the constant values based on Region 2
-    value_region1 = shear/10 * x1  # f(x_1) for Region 1
-    value_region3 = shear/10 * x2  # f(x_2) for Region 3
-
-    if shear == 0:
-        return np.full_like(x, 1)
-    
-    else:
-        # Define the piecewise behavior
-        return np.piecewise(
-            x,
-            [x < x1, (x >= x1) & (x <= x2), x > x2],
-            [value_region1, lambda x: shear/10 * x, value_region3],
-        ) + 1
-
-
-def generate_v_total(x: np.ndarray, D: float, shear: float) -> np.ndarray:
-    """
-    Generate lateral (v) velocity component given a total degree of shear over the rotor area
-
-    Args:
-        x (ArrayLike): An array of vertical (z) positions
-        D (float): Turbine diameter
-        shear (float): a shear magnitude
-    Returns:
-        ArrayLike: Array of lateral velocities at each x location
-    """
-    # Define the regions
-    x1, x2 = -(D / 2) * 2, (D / 2) * 2  # Region boundaries
-    
-    # Initialize the result as zeros
-    v = np.zeros_like(x, dtype=float)
-
-    # Region 1: x < x1
-    if shear == 0:
-        v[x < x1] = 0
-    else:
-        v[x < x1] = -(shear * 10) 
-
-    # Region 2: x1 <= x <= x2 (linear function with constant slope)
-    mask_region2 = (x >= x1) & (x <= x2)
-    v[mask_region2] = (shear * 10) / D * x[mask_region2]
-
-    # Region 3: x > x2
-    if shear == 0:
-        v[x > x2] = 0
-    else:
-        v[x > x2] = (shear * 10)
-
-    return v
-
-
-def generate_u_total(x: np.ndarray, D: float, shear: float) -> np.ndarray:
-    """
-    Generate streamwise (u) velocity component given a total degree of shear over the rotor area
-
-    Args:
-        x (ArrayLike): An array of vertical (z) positions
-        D (float): Turbine diameter
-        shear (float): a shear magnitude
-    Returns:
-        ArrayLike: Array of streamwise velocities at each x location
-    """
-    # Define the regions
-    x1, x2 = -(D / 2) * 2, (D / 2) * 2  # Region boundaries
-    
-    # Initialize the result as zeros
-    v = np.ones_like(x, dtype=float)
-
-    if shear == 0:
-        # If shear is zero, return an array of ones
-        return v
-
-    # Region 1: x < x1
-    if shear == 0:
-        v[x < x1] = 0
-    else:
-        v[x < x1] = -(shear) 
-
-    # Region 2: x1 <= x <= x2 (linear function with constant slope)
-    mask_region2 = (x >= x1) & (x <= x2)
-    v[mask_region2] = (shear) / D * x[mask_region2]
-
-    # Region 3: x > x2
-    if shear == 0:
-        v[x > x2] = 0
-    else:
-        v[x > x2] = (shear)
-
-    return 1 + v
-
+        [value_region1, lambda x: shear * x, value_region3]
+    ), dtype=float)
 
 def smooth_piecewise(y: np.ndarray, sigma: int, dx: float) -> np.ndarray:
     """
@@ -347,23 +258,15 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
         pair (Dict): The shear,veer pair
     """
 
-    z = np.arange(-1000, 1000, 1)
+    z = np.arange(-1000, 1000, 1,dtype=float)
 
-    if params['shear_type'] == 'Rate':
+    if params['shear_type'] in ['Rate', 'Total']:
 
-        uinf = generate_u(z/turbine.turb_diameter, pair[0])
+        uinf = generate_profile(z, turbine.turb_diameter, pair[0]/params['Ufst']) + 1.0
         uinf = smooth_piecewise(uinf, 30, z[1]-z[0])
 
-        wdir = generate_v(z, turbine.turb_diameter, pair[1])
+        wdir = generate_profile(z, turbine.turb_diameter, pair[1])
         wdir = -smooth_piecewise(wdir, 30, z[1]-z[0])
-    
-    elif params['shear_type'] == 'Total':
-
-        uinf = generate_u_total(z, turbine.turb_diameter, pair[0]/params['Ufst'])
-        uinf = smooth_piecewise(uinf, 35, z[1]-z[0])
-
-        wdir = generate_v_total(z, turbine.turb_diameter, pair[1])
-        wdir = -smooth_piecewise(wdir, 35, z[1]-z[0])
 
     else:
 
@@ -387,13 +290,11 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
 
     z = z + turbine.hubheight
 
-    znondim = (z - turbine.hubheight)/turbine.turb_diameter
-
     ######################################################################
     # Plot profiles
 
     if(params['plot_profiles']):
-        plot_sounding(figure_path, figure_name, namelist, pair, params, turbine, u, uinf, v, vinf, wdir, z, znondim)
+        plot_sounding(figure_path, figure_name, namelist, pair, params, turbine, u, v, wdir, z)
 
     ######################################################################
     # write to sounding file
@@ -424,7 +325,7 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
         np.savetxt(f, np.stack([z_clip, theta, w, u_clip, v_clip], axis=1), fmt=fmt)
 
 
-def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Dict[str, Any], turbine, u, uinf, v, vinf, wdir, z, znondim) -> None:
+def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Dict[str, Any], turbine, u, v, wdir, z) -> None:
     """
     Create plot of velocity profiles.
 
@@ -452,138 +353,77 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
         'text.latex.preamble': r'\usepackage{amsfonts}'
     })
     
-    fig, axs = plt.subplots(
-        nrows = 2,
+    _, axs = plt.subplots(
+        nrows = 1,
         ncols = 3,
-        figsize = (10, 6),
+        figsize = (9, 4),
+        sharey=True,
         constrained_layout = True,
     )
-
-    # Merge the third column into a single subplot
-    big_ax = fig.add_subplot(2, 3, (3, 6))  # Span rows for the third column
-
-    # Add titles and sample data
-    # axs[0, 0].set_title("Nondimensional velocity")
-    # axs[0, 1].set_title("Nondimensional direction")
-    # axs[1, 0].set_title("Dimensional velocity")
-    # axs[1, 1].set_title("Dimensional direction")
-    # big_ax.set_title("Wind speed magnitude")
-
-    axs[0, 2].axis('off')
-    axs[1, 2].axis('off')
-
-    # non-dimensional
+    
     # velocity profiles
-    axs[0, 0].axhline(-0.5, linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[0, 0].axhline(0, linestyle='dotted', linewidth=1)
-    axs[0, 0].axhline(0.5,  linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[0, 0].axvline((params['Ufst']/params['Ufst'])-1, linestyle='dotted', linewidth=1)
-    axs[0, 0].axvline(params['Ufst']/params['Ufst'], linestyle='dotted', linewidth=1)
-    axs[0, 0].plot(uinf, znondim, color='#0000FF', linestyle='solid', label=r'$u_{\infty}$')
-    axs[0, 0].plot(vinf, znondim, color='#E50000', linestyle='solid', label=r'$v_{\infty}$')
-    axs[0, 0].set_xlim([-1.0, 2.0])
-    axs[0, 0].legend()
-    axs[0, 0].set_ylim([-turbine.hubheight/turbine.turb_diameter, turbine.hubheight/turbine.turb_diameter])
-    axs[0, 0].set_xticks(np.arange(0.0, 3.0, 1.0))
-    axs[0, 0].set_xlabel(r'$u_{i}/U_{\infty}~[-]$')
-    axs[0, 0].set_ylabel(r'$(z-z_{h})/D~[-]$')
+    axs[0].axhline(turbine.hubheight-(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
+    axs[0].axhline(turbine.hubheight, linestyle='dotted', linewidth=1)
+    axs[0].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
+    axs[0].axvline(0.0, linestyle='dotted', linewidth=1)
+    axs[0].axvline(params['Ufst'], linestyle='dotted', linewidth=1)
+    axs[0].plot(u, z, color='#0000FF', linestyle='solid', label=r'$u_{\infty}$')
+    axs[0].plot(v, z, color='#E50000', linestyle='solid', label=r'$v_{\infty}$')
+    axs[0].set_xlim([-params['Ufst'], params['Ufst']*2])
+    axs[0].set_ylim([0, namelist.ztop])
+    axs[0].legend()
+    axs[0].set_xticks(np.arange(-8, params['Ufst']+10, 4))
+    axs[0].set_xlabel(r'$u_{i}~[\textrm{m~s$^{-1}$}]$')
+    axs[0].set_ylabel(r'$z~[\textrm{m}]$')
+
+    test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
+    test_line = pair[0] * test_z
+
+    axs[0].set_title(rf"$\Delta u_{{\infty}}: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [m/s]")
+    axs[0].plot(test_line + params['Ufst'], test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
+    
+    tip_u = np.interp(turbine.hubheight-0.5*turbine.turb_diameter,z,u)
+    diff = (test_line[0]+ params['Ufst'] - tip_u)
+
+    x_range = (params['Ufst']*2) - -params['Ufst']
+    axs[0].text(x_range*0.7 + -params['Ufst'], 75, f"Tip error: {abs(diff):.3f} [m/s]", fontsize=6, color="k", ha='left')
+
 
     # wind direction
-    axs[0, 1].axhline(-0.5, linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[0, 1].axhline(0, linestyle='dotted', linewidth=1)
-    axs[0, 1].axhline(0.5,  linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[0, 1].axvline(270.0, linestyle='dotted', linewidth=1)
-    axs[0, 1].plot(wdir, znondim, color='#006400', linestyle='solid', label=r'_nolegend_')
-    axs[0, 1].set_xlim([170.0, 370.0])
-    axs[0, 1].set_ylim([-turbine.hubheight/turbine.turb_diameter, turbine.hubheight/turbine.turb_diameter])
-    # axs[0, 1].set_xticks(np.arange(210.0, 330.0, 30.0))
-    axs[0, 1].set_xlabel(r'$\beta~[\textrm{$^{\circ}$}]$')
-    axs[0, 1].set_ylabel(r'$(z-z_{h})/D~[-]$')
-    
-    # dimensional
-    # velocity profiles
-    axs[1, 0].axhline(turbine.hubheight-(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[1, 0].axhline(turbine.hubheight, linestyle='dotted', linewidth=1)
-    axs[1, 0].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[1, 0].axvline(0.0, linestyle='dotted', linewidth=1)
-    axs[1, 0].axvline(params['Ufst'], linestyle='dotted', linewidth=1)
-    axs[1, 0].plot(u, z, color='#0000FF', linestyle='solid', label=r'$u_{\infty}$')
-    axs[1, 0].plot(v, z, color='#E50000', linestyle='solid', label=r'$v_{\infty}$')
-    axs[1, 0].set_xlim([-params['Ufst'], params['Ufst']*2])
-    axs[1, 0].set_ylim([0, namelist.ztop])
-    axs[1, 0].legend()
-    axs[1, 0].set_xticks(np.arange(-8, params['Ufst']+10, 4))
-    # axs[1, 0].set_yticks(np.arange(min(z), max(z)+250.0, 250.0))
-    axs[1, 0].set_xlabel(r'$u_{i}~[\textrm{m~s$^{-1}$}]$')
-    axs[1, 0].set_ylabel(r'$z~[\textrm{m}]$')
+    axs[1].axhline(turbine.hubheight-(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
+    axs[1].axhline(turbine.hubheight, linestyle='dotted', linewidth=1)
+    axs[1].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
+    axs[1].axvline(270.0, linestyle='dotted', linewidth=1)
+    axs[1].plot(wdir, z, color='#006400', linestyle='solid', label=r'_nolegend_')
 
-    if params['shear_type'] == 'Rate':
+    test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
+    test_line = -pair[1] * test_z
+    axs[1].set_title(rf"$\Delta\beta: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [deg]")
 
-        test_z    = np.linspace((-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter), 20)
-        test_line = pair[0]/10 * params['Ufst'] * test_z / turbine.turb_diameter
-
-    elif params['shear_type'] == 'Total':
-
-        test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
-        test_line = np.array([-pair[0]/10* 5, pair[0]/10* 5])
-
-    axs[1, 0].set_title(rf"$\Delta u: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [m/s]")
-
-    axs[1, 0].plot(test_line + params['Ufst'], test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
-    
-    # wind direction
-    axs[1, 1].axhline(turbine.hubheight-(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[1, 1].axhline(turbine.hubheight, linestyle='dotted', linewidth=1)
-    axs[1, 1].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
-    axs[1, 1].axvline(270.0, linestyle='dotted', linewidth=1)
-    axs[1, 1].plot(wdir, z, color='#006400', linestyle='solid', label=r'_nolegend_')
-
-    if params['shear_type'] == 'Rate':
-
-        test_z    = np.linspace((-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter), 20)
-        test_line = -pair[1]/10 * test_z
-
-    elif params['shear_type'] == 'Total':
-
-        test_z    = np.array([(-0.5*turbine.turb_diameter),(0.5*turbine.turb_diameter)])
-        test_line = np.array([pair[1]* 5, -pair[1]* 5])
-    
-    axs[1, 1].set_title(rf"$\Delta\beta: {abs(test_line[0]) + abs(test_line[1]):.2f}$ [deg]")
-
-    # axs[1, 1].set_title(f"Test")
-
-
-    axs[1, 1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
+    axs[1].plot(test_line + 270, test_z + turbine.hubheight, color='orange', linestyle='solid', label=r'_nolegend_')
 
     tip_deg = np.interp(turbine.hubheight-0.5*turbine.turb_diameter,z,wdir)
     diff = (((test_line[0] + 270) - tip_deg) + 180) % 360 - 180
-    axs[1, 1].text(275, 700, f"Tip error: {abs(diff):.2f} [deg]", fontsize=6, color="k", ha='left')
+    axs[1].text(300, 75, f"Tip error: {abs(diff):.2f} [deg]", fontsize=6, color="k", ha='left')
 
     if wdir[-1] <= 180:
-        axs[1, 1].text(275, 660, f"RESVERSE FLOW", fontsize=6, color='r', ha='left', fontweight='bold')
+        axs[1].text(275, 660, f"RESVERSE FLOW", fontsize=6, color='r', ha='left', fontweight='bold')
 
-    axs[1, 1].set_xlim([170.0, 370.0])
-    axs[1, 1].set_ylim([0, namelist.ztop])
-    # axs[1, 1].set_xticks(np.arange(210.0, 330.0, 30.0))
-    # axs[1, 1].set_yticks(np.arange(min(z), max(z)+250.0, 250.0))
-    axs[1, 1].set_xlabel(r'$\beta~[\textrm{$^{\circ}$}]$')
-    axs[1, 1].set_ylabel(r'$z~[\textrm{m}]$')
+    axs[1].set_xlim([170.0, 370.0])
+    axs[1].set_ylim([0, namelist.ztop])
+    axs[1].set_xlabel(r'$\beta~[\textrm{$^{\circ}$}]$')
 
     # wind speed magnitude
-    big_ax.axhline(turbine.hubheight-(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
-    big_ax.axhline(turbine.hubheight, linestyle='dotted', linewidth=1)
-    big_ax.axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
-    # big_ax.axvline(0.0, linestyle='dotted', linewidth=1)
-    big_ax.axvline(params['Ufst'], linestyle='dotted', linewidth=1)
-    big_ax.plot((u**2 + v**2)**(0.5), z, color='#730080', linestyle='solid')
-    big_ax.set_xlim([0, 15])
-    big_ax.set_ylim([0, namelist.ztop])
-    # big_ax.set_xticks(np.arange(-8, Ufst+10, 4))
-    # big_ax.set_yticks(np.arange(min(z), max(z)+250.0, 250.0))
-    big_ax.set_xlabel(r'Wind speed $[\textrm{m~s$^{-1}$}]$')
-    big_ax.set_ylabel(r'$z~[\textrm{m}]$')
+    axs[2].axhline(turbine.hubheight-(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
+    axs[2].axhline(turbine.hubheight, linestyle='dotted', linewidth=1)
+    axs[2].axhline(turbine.hubheight+(0.5*turbine.turb_diameter), linestyle='dashed', linewidth=1, dashes=(8, 3))
+    axs[2].axvline(params['Ufst'], linestyle='dotted', linewidth=1)
+    axs[2].plot((u**2 + v**2)**(0.5), z, color='#730080', linestyle='solid')
+    axs[2].set_xlim([0, 15])
+    axs[2].set_ylim([0, namelist.ztop])
+    axs[2].set_xlabel(r'Wind speed $[\textrm{m~s$^{-1}$}]$')
 
-    print(figure_path)
+    # print(figure_path)
     print(figure_name)
 
     plt.savefig(figure_path + '/' + figure_name + '.png', bbox_inches="tight", dpi=600)
@@ -595,7 +435,7 @@ def setup(params: Dict[str, Any], model) -> bool:
 
     namelist, turbtuple = preproc.validate(opt_params=params)
 
-    combinations = get_combinations(params=params)
+    combinations = get_combinations(params=params, D=turbtuple.turb_diameter)
 
     formats = determine_format(combinations)
 
@@ -684,9 +524,9 @@ def setup(params: Dict[str, Any], model) -> bool:
             "{PH_TIME}": f"{params['runtime']}",
             "{PH_PARTITION}": f"{params['partition']}",
         }
-        for key, val in replacements.items():
-            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
-            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
+        # for key, val in replacements.items():
+        #     run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
+        #     run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
 
         if params['batch_submit']:
             with open(batch_file_path, 'a') as batch_file:
