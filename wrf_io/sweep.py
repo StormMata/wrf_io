@@ -426,9 +426,13 @@ def plot_sounding(figure_path: str, figure_name: str, namelist: Dict[str, Any], 
     # print(figure_path)
     print(figure_name)
 
-    plt.savefig(figure_path + '/' + figure_name + '.png', bbox_inches="tight", dpi=600)
+    if params['save_profiles']:
+        plt.savefig(figure_path + '/' + figure_name + '.png', bbox_inches="tight", dpi=600)
 
-    plt.show()
+    if params['plot_profiles']:
+        plt.close()
+    else:
+        plt.show()
 
 
 def setup(params: Dict[str, Any], model: str) -> bool:
