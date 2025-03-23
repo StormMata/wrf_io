@@ -735,7 +735,8 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
 
             table.add_row(Text("[shear, veer]"), "Rate [(unit)/D]", "")
             table.add_row("", "", "")
-            combs_rate = sweep.get_combinations(opt_params, turbine.turb_diameter)
+            combs_rate = sweep.get_combinations(opt_params, turbine.turb_diameter, force=True)
+            combinations = [(np.array(a) / turbine.turb_diameter, np.array(b) / turbine.turb_diameter) for a, b in combinations]
             # for i in range(len(combs_rate)):
             #     table.add_row("", f"[{combs_rate[i][0]:2.2f},{combs_rate[i][1]:2.2f}]", "")
             for shear, veer in combs_rate:
