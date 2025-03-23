@@ -98,10 +98,14 @@ def get_combinations(params: Dict[str, Any], D: Optional[float] = None, force: O
             if D is None:
                 raise ValueError("ERROR: Turbine diameter 'D' must be provided when 'shear_type' is 'Total'.")
 
-            equivalent_shear_rate = np.round(np.array(params['shear']) / D, precision)
-            equivalent_veer_rate  = np.round(np.array(params['veer']) / D, precision)
+            # equivalent_shear_rate = np.round(np.array(params['shear']) / D, precision)
+            # equivalent_veer_rate  = np.round(np.array(params['veer']) / D, precision)
 
-            combinations = [pair for pair in product(equivalent_shear_rate, equivalent_veer_rate) if pair not in params['excluded_pairs']]
+            # combinations = [pair for pair in product(equivalent_shear_rate, equivalent_veer_rate) if pair not in params['excluded_pairs']]
+
+            combinations = [pair for pair in product(params['shear'], params['veer']) if pair not in params['excluded_pairs']]
+
+            combinations = [(np.round(np.array(a) / D, precision), np.round(np.array(b) / D, precision)) for a, b in combinations]
 
     else:
 
