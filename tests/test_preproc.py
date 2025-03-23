@@ -24,7 +24,7 @@ def test_parse_namelist(namelist_path):
 def test_parse_turbine_properties():
     """Test parse_turbine_properties with a real turbineProperties.tbl file."""
     opt_params = {
-        "read_from": os.path.dirname('./tests/'),
+        "template_path": os.path.dirname('./tests/'),
         "turb_model": "iea10MW"
     }
 

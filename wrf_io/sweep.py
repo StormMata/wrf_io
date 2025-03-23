@@ -135,7 +135,7 @@ def determine_format(pairs: List[Tuple[float, float]]) -> Tuple[int, int]:
     return max_int_digits, max_frac_digits
 
 
-def return_case_strings(pairs, format_specs):
+def return_case_strings(pairs: List[Tuple[float, float]], format_specs: Tuple[int, int]) -> List[str]:
     """
     Return a formatted list of strings with the casenames to iterate over
 
@@ -217,7 +217,7 @@ def generate_profile(x: np.ndarray, D: float, shear: float) -> np.ndarray:
         [value_region1, lambda x: shear * x, value_region3]
     ), dtype=float)
 
-def smooth_piecewise(y: np.ndarray, sigma: int, dx: float) -> np.ndarray:
+def smooth_piecewise(y: np.ndarray, sigma: int, dy: float) -> np.ndarray:
     """
     Smooth velocity components using a Gaussian convolution approach.
 
@@ -229,7 +229,7 @@ def smooth_piecewise(y: np.ndarray, sigma: int, dx: float) -> np.ndarray:
         ArrayLike: Array of smoothed y data
     """
     # Create a Gaussian kernel with a given standard deviation (sigma)
-    kernel_size = int(6 * sigma / dx)  # Ensure the kernel is large enough to cover the influence of the Gaussian
+    kernel_size = int(6 * sigma / dy)  # Ensure the kernel is large enough to cover the influence of the Gaussian
     kernel = np.exp(-np.linspace(-3, 3, kernel_size)**2 / (2 * sigma**2))
     kernel /= np.sum(kernel)  # Normalize the kernel
 
@@ -244,7 +244,7 @@ def smooth_piecewise(y: np.ndarray, sigma: int, dx: float) -> np.ndarray:
     return y_smoothed
 
 
-def create_sounding(current_path: str, figure_path: str, figure_name: str, params: Dict[str, Any], namelist, turbine, pair) -> None:
+def create_sounding(current_path: str, figure_path: str, figure_name: str, params: Dict[str, Any], namelist: Dict[str, Any], turbine: Dict[str, Any], pair: Tuple[float, float]) -> None:
     """
     Create sounding files based on shear and veer settings.
 
@@ -325,7 +325,7 @@ def create_sounding(current_path: str, figure_path: str, figure_name: str, param
         np.savetxt(f, np.stack([z_clip, theta, w, u_clip, v_clip], axis=1), fmt=fmt)
 
 
-def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Dict[str, Any], turbine, u, v, wdir, z) -> None:
+def plot_sounding(figure_path: str, figure_name: str, namelist: Dict[str, Any], pair: Tuple[float, float], params: Dict[str, Any], turbine: Dict[str, Any], u: np.ndarray, v: np.ndarray, wdir: np.ndarray, z: np.ndarray) -> None:
     """
     Create plot of velocity profiles.
 
@@ -431,7 +431,7 @@ def plot_sounding(figure_path: str, figure_name: str, namelist, pair, params: Di
     plt.show()
 
 
-def setup(params: Dict[str, Any], model) -> bool:
+def setup(params: Dict[str, Any], model: str) -> bool:
 
     namelist, turbtuple = preproc.validate(opt_params=params)
 
