@@ -105,7 +105,7 @@ def get_combinations(params: Dict[str, Any], D: Optional[float] = None, force: O
 
     else:
 
-        raise ValueError(f'ERROR. Unrecognized shear type "{params['shear_type']}". Cannot compute equivalent rate.')
+        raise ValueError(f'ERROR. Unrecognized shear type "{params["shear_type"]}". Cannot compute equivalent rate.')
 
     return combinations
 
