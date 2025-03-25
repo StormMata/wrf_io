@@ -11,7 +11,7 @@ import matplotlib.ticker as mticker
 from wrf_io import sweep
 from pathlib import Path
 from wrf_io import preproc
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from multiprocessing import Pool
 from rich.console import Console
 from numpy.typing import ArrayLike
@@ -45,7 +45,7 @@ def rmsd_window(data: ArrayLike, window: int, interval: int) -> ArrayLike:
     return data.rolling(window=window_size, min_periods=1).apply(rmsd, raw=True)
 
 
-def convergence(params: Dict[str, Any]) -> None:
+def convergence(params: Dict[str, Any], D: Optional[float] = None) -> None:
     """
     Generate timeseries plots of power, thrust, CP, and CT for a series of runs
 
@@ -53,7 +53,7 @@ def convergence(params: Dict[str, Any]) -> None:
         params (Dict): A dictionary of settings
     """
 
-    combs     = sweep.get_combinations(params)
+    combs     = sweep.get_combinations(params, D=D)
     formats   = sweep.determine_format(combs)
     casenames = sweep.return_case_strings(combs,formats)
 
