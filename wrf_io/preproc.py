@@ -748,7 +748,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
             table.add_row("", "", "")
             combs_total = sweep.get_combinations(opt_params, force=True)
             for shear, veer in combs_total:
-                table.add_row("", f"[{shear:6.1f},{veer:3.0f}]", "")
+                table.add_row("", f"[{shear:5.1f},{veer:3.0f}]", "")
 
         table.add_row("", "", "", end_section=True)
 
