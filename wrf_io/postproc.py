@@ -17,6 +17,28 @@ from rich.console import Console
 from numpy.typing import ArrayLike
 from matplotlib.gridspec import GridSpec
 
+def load_wrfout(top_dir: str):
+
+    files, cases = get_dirs(top_dir)
+
+    wrf_data = []
+    for i in range(len(files)):
+        wrf_data.append(dict(np.load(files[i] + cases[i]+'_lite.npz')))
+
+    return wrf_data
+
+def get_dirs(top_dir: str):
+    path_template = os.path.join(top_dir, 's*_v*')
+    file_list = glob.glob(path_template)
+
+    # Extract the last part of each path
+    last_parts = [os.path.basename(path) for path in file_list]
+
+    # Sort both lists based on last_parts
+    sorted_pairs = sorted(zip(last_parts, file_list))  # Sort by last_parts
+    last_parts, file_list = zip(*sorted_pairs) if sorted_pairs else ([], [])
+
+    return list(file_list), list(last_parts)
 
 def rmsd_window(data: ArrayLike, window: int, interval: int) -> ArrayLike:
     """
@@ -293,17 +315,24 @@ def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     var_holder = {}
 
-    var_holder['diameter']    = diameter
+    var_holder['diameter']     = diameter
+    var_holder['radius']       = diameter/2
+    var_holder['hub_diameter'] = dhub
+    var_holder['hub_radius']   = dhub/2
     var_holder['hub_height']  = static_args['hub_height']
     var_holder['rOverR']      = rOverR
     var_holder['dx']          = dx
     var_holder['dy']          = dy
+    var_holder['dz']          = static_args['dz']
+
     var_holder['dt']          = dt
     var_holder['Nx']          = Nx
     var_holder['Ny']          = Ny
     var_holder['Nz']          = Nz
     var_holder['tower_xloc']  = static_args['tower_xloc']
     var_holder['tower_yloc']  = static_args['tower_yloc']
+    var_holder['Nsct']        = Nsct
+    var_holder['Nelm']        = Nelm
 
     var_holder['uinf']        = static_args['uinf']
     var_holder['omega']       = rotspeed
@@ -529,8 +558,10 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
 
     rOverR = dr/(diameter/2)
 
-    var_holder['diameter']    = diameter
-    var_holder['hub_height']  = hub_height
+    var_holder['diameter']     = diameter
+    var_holder['radius']       = diameter/2
+    var_holder['hub_diameter'] = dhub
+    var_holder['hub_height']  = static_args['hub_height']
     var_holder['rOverR']      = rOverR
     var_holder['dx']          = dx
     var_holder['dy']          = dy
@@ -538,8 +569,10 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     var_holder['Nx']          = Nx
     var_holder['Ny']          = Ny
     var_holder['Nz']          = Nz
-    var_holder['tower_xloc']  = tower_xloc
-    var_holder['tower_yloc']  = tower_yloc
+    var_holder['tower_xloc']  = static_args['tower_xloc']
+    var_holder['tower_yloc']  = static_args['tower_yloc']
+    var_holder['Nsct']        = Nsct
+    var_holder['Nelm']        = Nelm
 
     var_holder['uinf']        = static_args['uinf']
     var_holder['omega']       = rotspeed
@@ -592,12 +625,14 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
         opt_params (Dict): A dictionary of settings including sample locations if desired
         procType (str): Tell the function to do a fast process or full process
     """
+    full_base_path = params['base_dir'] + params['rotor_model'].lower() + f'_sweep'
 
-    filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_00_00', recursive=True)
+    # filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_00_00', recursive=True)
+    filelist, _ = get_dirs(full_base_path)
 
-    sample_namelist = glob.glob(params['base_dir'] + '/**/namelist.input', recursive=True)[0]
-    sample_turbdb = glob.glob(params['base_dir'] + '/**/turbineProperties.tbl', recursive=True)[0]
-    sample_turbloc = glob.glob(params['base_dir'] + '/**/windturbines-ij.dat', recursive=True)[0]
+    sample_namelist = filelist[0] + '/namelist.input'
+    sample_turbdb = os.path.join(filelist[0], 'windTurbines', params['turb_model'], 'turbineProperties.tbl')
+    sample_turbloc = filelist[0] + '/windturbines-ij.dat'
 
     console = Console()
 
@@ -626,6 +661,7 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
     static_args['hub_height']       = turbprops.hubheight
     static_args['tower_xloc']       = turbprops.turb_x
     static_args['tower_yloc']       = turbprops.turb_y
+    static_args['dz']               = namelist.e_vert
     static_args['uinf']             = params['Ufst']
     static_args['sample_distances'] = params['slice_loc']
 
@@ -730,13 +766,17 @@ def per_error(A: float, E: float) -> float:
 
     return error
 
-def extract_sounding(file_list: list[str]) -> Dict[float, Any]:
+def extract_sounding(params: Dict[str, Any]) -> Dict[float, Any]:
     """
     Extracts u and v velocity components from wrf sounding file
 
     Args:
         file_list (list): List of file paths to sounding files
     """
+
+    files, _ = get_dirs(params['base_dir'])
+
+    file_list = [path + '/input_sounding' for path in files]
 
     data_dict = {}
 
