@@ -762,9 +762,18 @@ def per_error(A: float, E: float) -> float:
         float: percent error [%]
     """
 
-    error = ((A - E) / E) * 100
+    # error = ((A - E) / E) * 100
 
-    return error
+    # return error
+
+    A = np.asarray(A)
+    E = np.asarray(E)
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        error = np.where(E == 0, np.inf, ((A - E) / E) * 100)
+
+    return error if error.shape != () else error.item()
+
 
 def extract_sounding(params: Dict[str, Any]) -> Dict[float, Any]:
     """
