@@ -717,7 +717,7 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
 
         if opt_params['shear_type']=='Rate':
 
-            table.add_row(Text("[shear, veer]"), "Rate [(unit)/D]", "")
+            table.add_row(Text("[shear, veer]"), "Rate [(unit)/m]", "")
             table.add_row("", "", "")
             combs_rate = sweep.get_combinations(opt_params)
             for i in range(len(combs_rate)):
