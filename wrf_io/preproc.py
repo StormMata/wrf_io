@@ -720,16 +720,30 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
             table.add_row(Text("[shear, veer]"), "Rate [(unit)/m]", "")
             table.add_row("", "", "")
             combs_rate = sweep.get_combinations(opt_params)
+
+            combs_rate_sigfigs = sweep.determine_format(combs_rate)
+            combs_rate_sigfigs = list(combs_rate_sigfigs)
+
+            if combs_rate_sigfigs[0] == 0:
+                combs_rate_sigfigs[0] = 1
+            total_chars = combs_rate_sigfigs[0] + combs_rate_sigfigs[1] + 2
+            dec_chars = combs_rate_sigfigs[1]
+
+            fmt_str = f"{{:{total_chars}.{dec_chars}f}}"  # build format string
+
             for i in range(len(combs_rate)):
-                table.add_row("", f"[{combs_rate[i][0]:2.2f},{combs_rate[i][1]:2.2f}]", "")
+                formatted_shear = fmt_str.format(combs_rate[i][0])
+                formatted_veer = fmt_str.format(combs_rate[i][1])
+                table.add_row("", f"[{formatted_shear},{formatted_veer}]", "")
 
             table.add_row("", "", "")
 
             table.add_row(Text("[shear, veer]"), "Total [(unit)]", "")
             table.add_row("", "", "")
             combs_total = [(shear * turbine.turb_diameter, veer * turbine.turb_diameter) for shear, veer in sweep.get_combinations(opt_params)]
+
             for shear, veer in combs_total:
-                table.add_row("", f"[{shear:4.1f},{veer:2.0f}]", "")
+                table.add_row("", f"[{shear:5.1f},{veer:5.1f}]", "")
 
         if opt_params['shear_type']=='Total':
 
