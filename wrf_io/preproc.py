@@ -9,6 +9,7 @@ from io import StringIO
 from wrf_io import sweep
 from rich.text import Text
 from rich.table import Table
+from datetime import datetime
 from scipy import interpolate
 from rich.console import Console
 from collections import namedtuple
@@ -765,6 +766,11 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
                 table.add_row("", f"[{shear:5.1f},{veer:3.0f}]", "")
 
         table.add_row("", "", "", end_section=True)
+
+    #TIMESTAMP
+    timestamp = datetime.now().strftime("Table generated on %Y-%m-%d at %H:%M:%S")
+
+    table.add_row(f"{timestamp}", "", "", end_section=True)
 
     # Print the table to the console
     if 'print_table' in opt_params and opt_params['print_table']:

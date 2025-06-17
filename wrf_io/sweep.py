@@ -1,4 +1,5 @@
 import os
+import pickle
 import shutil
 import platform
 import subprocess
@@ -544,6 +545,10 @@ def setup(params: Dict[str, Any], model: str) -> bool:
     
     if params['batch_submit']:
         os.chmod(batch_file_path, 0o777)
+
+    # Save parameters
+    with open(os.path.join(params['base_dir'], model_str, 'opt_params.pkl'), 'wb') as f:
+        pickle.dump(params, f)
 
     print('Done.')
     return success

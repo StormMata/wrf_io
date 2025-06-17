@@ -2,6 +2,7 @@ import gc
 import os
 import time
 import glob
+import pickle
 import netCDF4
 import numpy as np
 import pandas as pd
@@ -28,17 +29,21 @@ def load_wrfout(top_dir: str):
     return wrf_data
 
 def get_dirs(top_dir: str):
-    path_template = os.path.join(top_dir, 's*_v*')
-    file_list = glob.glob(path_template)
+    # Look one level deeper for s*_v* entries
+    path_template = os.path.join(top_dir, '*', 's*_v*')
+    all_matches = glob.glob(path_template)
 
-    # Extract the last part of each path
-    last_parts = [os.path.basename(path) for path in file_list]
+    # Filter only directories
+    dir_list = [path for path in all_matches if os.path.isdir(path)]
 
-    # Sort both lists based on last_parts
-    sorted_pairs = sorted(zip(last_parts, file_list))  # Sort by last_parts
-    last_parts, file_list = zip(*sorted_pairs) if sorted_pairs else ([], [])
+    # Extract only the last part of each path (e.g., "s2_v3")
+    last_parts = [os.path.basename(path) for path in dir_list]
 
-    return list(file_list), list(last_parts)
+    # Sort both lists based on folder name
+    sorted_pairs = sorted(zip(last_parts, dir_list))
+    last_parts, dir_list = zip(*sorted_pairs) if sorted_pairs else ([], [])
+
+    return list(dir_list), list(last_parts)
 
 def rmsd_window(data: ArrayLike, window: int, interval: int) -> ArrayLike:
     """
@@ -697,33 +702,63 @@ def annulus_average(f: ArrayLike, theta: ArrayLike) -> ArrayLike:
     Compute annulus average of spatial quantity f(r,theta) over rotor
 
     Args:
-        f (ArrayLike): Spatial quantity
+        f (ArrayLike): Spatial quantity in (r, theta)
         theta (ArrayLike): Azimuthal locations over which to average
     
     Returns:
         ArrayLike: array of annulus averages
     """
 
-    X_azim = 1 / (2 * np.pi) * np.trapz(f, theta, axis=-1)
+    dtheta  = np.gradient(theta)
+    weights = dtheta / np.sum(dtheta)
+    X_azim  = np.sum(f * weights, axis=1)
 
     return X_azim
+
+def annulus_avg_to_rotor_avg(f: ArrayLike, r: ArrayLike) -> ArrayLike:
+    """
+    Compute rotor average of annulus-averaged spatial quantity f(r) over rotor
+
+    Args:
+        f (ArrayLike): Annulus-averaged spatial quantity in (r)
+        theta (ArrayLike): Azimuthal locations over which to average
+    
+    Returns:
+        ArrayLike: array of annulus averages
+    """
+
+    dr = np.gradient(r)
+    area_elements = 2 * np.pi * r * dr  # differential area for annular rings
+    integrand = f * area_elements
+
+    A = np.pi * (1 - r[0]**2)  # total area of annulus from R1 to R2
+
+    X_rotor =  np.sum(integrand) / A
+
+    return X_rotor
 
 def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> float:
     """
     Compute rotor average of spatial quantity f(r,theta) over rotor
 
     Args:
-        f (ArrayLike): Spatial quantity
-        r (ArrayLike): Radial points over rotor
+        f (ArrayLike): Spatial quantity in (r,theta)
+        r (ArrayLike): Normalized radial points over rotor [0,1]
         theta (ArrayLike): Azimuthal points over rotor
     
     Returns:
         float: rotor-averaged quantity
     """
 
-    X_azim = 1 / (2 * np.pi) * np.trapz(f, theta, axis=-1)
+    dr     = np.gradient(r)
+    dtheta = np.gradient(theta)
 
-    X_rotor = 2 * np.trapz(X_azim * r, r)
+    area_elements = np.outer(dr * r, dtheta)
+    integrand     = f * area_elements
+
+    A = np.pi * (1 - r[0]**2)
+
+    X_rotor = np.sum(integrand) / A
 
     return X_rotor
 
@@ -762,10 +797,6 @@ def per_error(A: float, E: float) -> float:
         float: percent error [%]
     """
 
-    # error = ((A - E) / E) * 100
-
-    # return error
-
     A = np.asarray(A)
     E = np.asarray(E)
 
@@ -788,8 +819,6 @@ def extract_sounding(params: Dict[str, Any]) -> Dict[float, Any]:
     file_list = [path + '/input_sounding' for path in files]
 
     data_dict = {}
-
-    i = 0
     
     for file in file_list:
         with open(file, 'r') as f:
@@ -802,3 +831,62 @@ def extract_sounding(params: Dict[str, Any]) -> Dict[float, Any]:
             data_dict[key] = data
     
     return data_dict
+
+def rotGlobalToLocal(Nelm,Nsct,u_rotor,v_rotor,w_rotor):
+
+    precone = 0
+    tilt    = 0
+    trbYaw  = 0
+
+    psi = 0.0
+    angle = 2 * np.pi / Nsct
+
+    Ux   = np.zeros_like(u_rotor,dtype='float')
+    Utau = np.zeros_like(u_rotor,dtype='float')
+    Ur   = np.zeros_like(u_rotor,dtype='float')
+
+    for i in range(Nelm):
+        for j in range(Nsct):
+            transposePrecone = np.array([[np.cos(precone), 0, np.sin(precone)],[0,1,0],[-np.sin(precone), 0, np.cos(precone)]])
+            transposeAzimuth = np.array([[1,0,0],[0,np.cos(psi),np.sin(psi)],[0,-np.sin(psi),np.cos(psi)]])
+            transposeTilt    = np.array([[np.cos(tilt), 0, -np.sin(tilt)],[0,1,0],[np.sin(tilt), 0, np.cos(tilt)]])
+            transposeYaw     = np.array([[np.cos(trbYaw), np.sin(trbYaw), 0],[-np.sin(trbYaw), np.cos(trbYaw), 0],[0,0,1]])
+
+            psi = psi + angle
+
+            PreconeAzimuth = np.matmul(transposePrecone, transposeAzimuth)
+            PreconeAzimuthTilt = np.matmul(PreconeAzimuth, transposeTilt)
+            PreconeAzimuthTiltYaw = np.matmul(PreconeAzimuthTilt, transposeYaw)
+
+            local = np.matmul(PreconeAzimuthTiltYaw, np.array([[u_rotor[i,j]], [v_rotor[i,j]], [w_rotor[i,j]]]))
+
+            Ux[i,j]   = local[0][0]
+            Utau[i,j] = local[1][0]
+            Ur[i,j]   = local[2][0]
+
+    return Ux, Utau, Ur
+
+def load_params(path: str) -> Dict[str, Any]:
+
+    with open(path, 'rb') as f:
+        opt_params = pickle.load(f)
+
+    max_key_len = max(len(str(key)) for key in opt_params)
+
+    output_lines = []
+    for key, value in opt_params.items():
+        output_lines.append(f"{key:<{max_key_len}} : {value}")
+
+    print("\n".join(output_lines))
+
+    return opt_params
+
+def load_data(params: Dict[str, Any], casenames: Dict[str, Any]) -> Dict[str, Any]:
+
+    model_str = params['rotor_model'].lower() + f'_sweep'
+
+    wrfles_bem = []
+    for i in range(len(casenames)):
+        wrfles_bem.append(dict(np.load(os.path.join(params['base_dir'], model_str, casenames[i]+'_lite.npz'))))
+
+    return wrfles_bem
