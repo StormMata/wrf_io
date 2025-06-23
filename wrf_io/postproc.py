@@ -806,7 +806,7 @@ def per_error(A: float, E: float) -> float:
     return error if error.shape != () else error.item()
 
 
-def extract_sounding(params: Dict[str, Any]) -> Dict[float, Any]:
+def extract_sounding(params: Dict[str, Any], local: bool, path: Optional[str]) -> Dict[float, Any]:
     """
     Extracts u and v velocity components from wrf sounding file
 
@@ -814,7 +814,10 @@ def extract_sounding(params: Dict[str, Any]) -> Dict[float, Any]:
         file_list (list): List of file paths to sounding files
     """
 
-    files, _ = get_dirs(params['base_dir'])
+    if local:
+        files, _ = get_dirs(path)
+    else:
+        files, _ = get_dirs(params['base_dir'])
 
     file_list = [path + '/input_sounding' for path in files]
 
@@ -881,12 +884,17 @@ def load_params(path: str) -> Dict[str, Any]:
 
     return opt_params
 
-def load_data(params: Dict[str, Any], casenames: Dict[str, Any]) -> Dict[str, Any]:
+def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, path: Optional[str]) -> Dict[str, Any]:
 
     model_str = params['rotor_model'].lower() + f'_sweep'
 
+    if local:
+        base = path
+    else:
+        base = params['base_dir']
+
     wrfles_bem = []
     for i in range(len(casenames)):
-        wrfles_bem.append(dict(np.load(os.path.join(params['base_dir'], model_str, casenames[i]+'_lite.npz'))))
+        wrfles_bem.append(dict(np.load(os.path.join(base, model_str, casenames[i]+'_lite.npz'))))
 
     return wrfles_bem
