@@ -15,7 +15,7 @@ setup(
         "rich",
         "Pillow",
         "glob2",
-        "scikit-learn",
+        "sklearn",
     ],
     setup_requires=['pytest-runner'],
     tests_require=['pytest==4.4.1'],
