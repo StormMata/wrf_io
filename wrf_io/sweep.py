@@ -533,9 +533,9 @@ def setup(params: Dict[str, Any], model: str) -> bool:
             "{PH_TIME}": f"{params['runtime']}",
             "{PH_PARTITION}": f"{params['partition']}",
         }
-        # for key, val in replacements.items():
-            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
-            # run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
+        for key, val in replacements.items():
+            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'export_libs_load_modules.sh')])
+            run_subprocess(['sed', '-i', f"s/{key}/{val}/g", os.path.join(current_path, 'submit.sh')])
 
         if params['batch_submit']:
             with open(batch_file_path, 'a') as batch_file:

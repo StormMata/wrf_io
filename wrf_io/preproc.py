@@ -25,7 +25,7 @@ Namelist = namedtuple('Namelist', [
     'outer_dx', 'outer_dy', 'inner_dx', 'inner_dy', 'outer_e_we', 'outer_e_sn',
     'ztop', 'inner_e_we', 'inner_e_sn', 'e_vert', 'i_parent_start',
     'j_parent_start', 'parent_grd_rat', 'time_step_rat', 'nproc_x', 'nproc_y',
-    'nSections', 'nElements', 'nSeries'
+    'nSections', 'nElements', 'nSeries', 'Shapiro'
 ])
 
 Turbine = namedtuple('Turbine', [
@@ -208,6 +208,8 @@ def load_variables(parsed_config: Dict[str, Any], parsed_turbine: Dict[str, Any]
         nSections      = int(parsed_config['physics'].get('wind_wtp_nSections', None)),
         nElements      = int(parsed_config['physics'].get('wind_wtp_nElements', None)),
         nSeries        = int(parsed_config['physics'].get('wind_wtp_nSeries', None)),
+
+        Shapiro        = bool(parsed_config['physics'].get('wind_wtp_shapiro', None))
     )
 
     # Extract variables for the turbine
@@ -632,9 +634,14 @@ def summary_table(namelist: Namelist, turbine: Turbine, opt_params: Dict[str, An
         table.add_row("nSeries", f"{namelist.nSeries:.0f}", "")
     table.add_row("", "", "")
     if (turbine.inflow_loc < (turbine.turb_diameter*3)):
-        table.add_row("V0 location", f"{(turbine.inflow_loc/turbine.turb_diameter):.1f} x D", ">3D", end_section=True)
+        table.add_row("V0 location", f"{(turbine.inflow_loc/turbine.turb_diameter):.1f} x D", ">3D")
     else:
-        table.add_row("V0 location", f"{(turbine.inflow_loc/turbine.turb_diameter):.1f} x D", "", end_section=True)
+        table.add_row("V0 location", f"{(turbine.inflow_loc/turbine.turb_diameter):.1f} x D", "")
+    table.add_row("", "", "")
+    if (namelist.Shapiro):
+        table.add_row("Shapiro", "ON", "", end_section=True)
+    else:
+        table.add_row("Shapiro", "OFF", "", end_section=True)
 
     # DOMAIN
     table.add_row("[bold underline]DOMAIN[/bold underline]", "", "")

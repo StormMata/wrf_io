@@ -1,8 +1,10 @@
 import gc
+import re
 import os
 import time
 import glob
 import pickle
+import pprint
 import netCDF4
 import numpy as np
 import pandas as pd
@@ -12,11 +14,13 @@ import matplotlib.ticker as mticker
 from wrf_io import sweep
 from pathlib import Path
 from wrf_io import preproc
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from multiprocessing import Pool
 from rich.console import Console
 from numpy.typing import ArrayLike
 from matplotlib.gridspec import GridSpec
+from sklearn.gaussian_process.kernels import Kernel, WhiteKernel
+from sklearn.gaussian_process.kernels import RBF, ExpSineSquared, ConstantKernel as C
 
 def load_wrfout(top_dir: str):
 
@@ -806,7 +810,7 @@ def per_error(A: float, E: float) -> float:
     return error if error.shape != () else error.item()
 
 
-def extract_sounding(params: Dict[str, Any], local: bool, path: Optional[str]) -> Dict[float, Any]:
+def extract_sounding(params: Dict[str, Any], local: bool, path: Optional[str] = None) -> Dict[float, Any]:
     """
     Extracts u and v velocity components from wrf sounding file
 
@@ -884,7 +888,7 @@ def load_params(path: str) -> Dict[str, Any]:
 
     return opt_params
 
-def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, path: Optional[str]) -> Dict[str, Any]:
+def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, path: Optional[str] = None) -> Dict[str, Any]:
 
     model_str = params['rotor_model'].lower() + f'_sweep'
 
@@ -898,3 +902,174 @@ def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, pa
         wrfles_bem.append(dict(np.load(os.path.join(base, model_str, casenames[i]+'_lite.npz'))))
 
     return wrfles_bem
+
+# ------------------------ GP search functions
+
+def build_kernel_from_search(file_path: str):
+    # Extract kernel line
+    kernel_line = extract_kernel_line(file_path)
+    print("Kernel line:")
+    print(kernel_line)
+
+    # Extract noise
+    noise_log = extract_noise_parameter(file_path)
+    print("\nNoise:")
+    print(noise_log)
+
+    # Extract the kernel string argument (remove wrapper like k_opt=..., nll=)
+    kernel_str_match = re.search(r'k_opt=(.+\)), nll=', kernel_line)
+    kernel_str = kernel_str_match.group(1)
+    print("\nKernel specification string:")
+    print(kernel_str)
+
+    # Parse
+    parsed_kernel = parse_kernel_expr(kernel_str)
+    print("\nKernel structure:")
+    pprint.pprint(parsed_kernel)
+
+    # Build
+    my_kernel = build_sklearn_kernel(parsed_kernel, noise_log=noise_log)
+    print("\nFinal Scikit-learn kernel:")
+    print(my_kernel)
+
+    return my_kernel
+
+def extract_kernel_line(file_path: str) -> str:
+    with open(file_path, 'r') as file:
+        for line in file:
+            if "Kernel(" in line:
+                return line.strip()
+    raise ValueError("No kernel specification found in the file.")
+
+def extract_noise_parameter(file_path: str) -> float:
+    with open(file_path, 'r') as file:
+        for line in file:
+            if "Kernel(" in line or "ScoredKernel(" in line:
+                match = re.search(r'noise=\[([-0-9eE\.\+]+)\]', line)
+                if match:
+                    return float(match.group(1))
+    raise ValueError("No noise parameter found in the file.")
+
+def parse_kernel_expr(expr: str) -> dict:
+    expr = expr.strip()
+    # SumKernel([ ... ])
+    if expr.startswith('SumKernel(['):
+        inner = expr[len('SumKernel(['):-1]
+        children = split_kernels(inner)
+        return {'type': 'sum', 'children': [parse_kernel_expr(child) for child in children]}
+    # ProductKernel([ ... ])
+    elif expr.startswith('ProductKernel(['):
+        inner = expr[len('ProductKernel(['):-1]
+        children = split_kernels(inner)
+        return {'type': 'product', 'children': [parse_kernel_expr(child) for child in children]}
+    # MaskKernel(ndim=..., active_dimension=..., base_kernel=...)
+    elif expr.startswith('MaskKernel('):
+        ndim = int(re.search(r'ndim=(\d+)', expr).group(1))
+        active_dimension = int(re.search(r'active_dimension=(\d+)', expr).group(1))
+        base_kernel_match = re.search(r'base_kernel=(.+\))$', expr)
+        base_kernel_str = base_kernel_match.group(1)
+        return {
+            'type': 'mask',
+            'ndim': ndim,
+            'active_dimension': active_dimension,
+            'base_kernel': parse_kernel_expr(base_kernel_str)
+        }
+    # SqExpKernel(lengthscale=..., output_variance=...)
+    elif expr.startswith('SqExpKernel('):
+        params = dict(re.findall(r'(\w+)=([-\d\.]+)', expr))
+        return {
+            'type': 'sqexp', 
+            'lengthscale': float(params['lengthscale']),
+            'variance': float(params['output_variance'])
+        }
+    # SqExpPeriodicKernel(lengthscale=..., period=..., output_variance=...)
+    elif expr.startswith('SqExpPeriodicKernel('):
+        params = dict(re.findall(r'(\w+)=([-\d\.]+)', expr))
+        return {
+            'type': 'sqexpperiodic', 
+            'lengthscale': float(params['lengthscale']),
+            'period': float(params['period']),
+            'variance': float(params['output_variance'])
+        }
+    else:
+        raise ValueError(f"Unknown kernel: {expr}")
+
+def split_kernels(s: str) -> List[str]:
+    children = []
+    depth = 0
+    last = 0
+    for i, c in enumerate(s):
+        if c in '([':
+            depth += 1
+        elif c in ')]':
+            depth -= 1
+        elif c == ',' and depth == 0:
+            children.append(s[last:i].strip())
+            last = i+1
+    children.append(s[last:].strip())
+    return [child for child in children if child]
+
+class MaskedKernel(Kernel):
+    """A kernel wrapper to mask input features (dimensions) for any scikit-learn kernel."""
+    def __init__(self, base_kernel: Kernel, active_dims: List[int]):
+        self.base_kernel = base_kernel
+        self.active_dims = np.array(active_dims)
+
+    def __call__(self, X: np.ndarray, Y: Optional[np.ndarray] = None, eval_gradient: bool = False) -> Any:
+        X_sub = X[:, self.active_dims]
+        if Y is not None:
+            Y_sub = Y[:, self.active_dims]
+        else:
+            Y_sub = None
+        return self.base_kernel(X_sub, Y_sub, eval_gradient=eval_gradient)
+
+    def diag(self, X: np.ndarray) -> np.ndarray:
+        X_sub = X[:, self.active_dims]
+        return self.base_kernel.diag(X_sub)
+
+    def is_stationary(self) -> bool:
+        return self.base_kernel.is_stationary()
+
+    def __repr__(self) -> str:
+        return f"MaskedKernel({repr(self.base_kernel)}, active_dims={self.active_dims.tolist()})"
+
+def build_sklearn_kernel(parsed: dict, noise_log: Optional[float] = None) -> Kernel:
+    if parsed['type'] == 'sum':
+        result = None
+        for child in parsed['children']:
+            term = build_sklearn_kernel(child)
+            result = term if result is None else result + term
+    elif parsed['type'] == 'product':
+        result = None
+        for child in parsed['children']:
+            term = build_sklearn_kernel(child)
+            result = term if result is None else result * term
+    elif parsed['type'] == 'mask':
+        active_dim = [parsed['active_dimension']]
+        base = build_sklearn_kernel(parsed['base_kernel'])
+        result = MaskedKernel(base, active_dim)
+    elif parsed['type'] == 'sqexp':
+        lengthscale = np.exp(parsed['lengthscale'])
+        variance = np.exp(parsed['variance'])
+        result = C(variance) * RBF(length_scale=lengthscale)
+    elif parsed['type'] == 'sqexpperiodic':
+        lengthscale = np.exp(parsed['lengthscale'])
+        period = np.exp(parsed['period'])
+        variance = np.exp(parsed['variance'])
+        result = C(variance) * RBF(length_scale=lengthscale) * ExpSineSquared(length_scale=lengthscale, periodicity=period)
+    else:
+        raise ValueError(f"Unknown kernel type: {parsed['type']}")
+
+    # If noise_log is provided, add WhiteKernel
+    if noise_log is not None:
+        noise_level = np.exp(noise_log)
+        result = result + WhiteKernel(noise_level=noise_level)
+    return result
+
+def set_active_dims(kernel: Kernel, active_dims: List[int]) -> Kernel:
+    """Helper to patch active_dims attribute on kernels for scikit-learn ≤1.2 compatibility."""
+    try:
+        return kernel.clone_with_theta(kernel.theta, active_dims=active_dims)
+    except Exception:
+        kernel.active_dims = active_dims  # For kernels where .active_dims exists
+        return kernel
