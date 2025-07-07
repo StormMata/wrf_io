@@ -1010,28 +1010,27 @@ def split_kernels(s: str) -> List[str]:
     return [child for child in children if child]
 
 class MaskedKernel(Kernel):
-    """A kernel wrapper to mask input features (dimensions) for any scikit-learn kernel."""
-    def __init__(self, base_kernel: Kernel, active_dims: List[int]):
+    def __init__(self, base_kernel: Kernel, active_dims: list):
         self.base_kernel = base_kernel
-        self.active_dims = np.array(active_dims)
+        self.active_dims = active_dims  # Always keep as list, not np.array
 
-    def __call__(self, X: np.ndarray, Y: Optional[np.ndarray] = None, eval_gradient: bool = False) -> Any:
+    def __call__(self, X, Y=None, eval_gradient=False):
         X_sub = X[:, self.active_dims]
-        if Y is not None:
-            Y_sub = Y[:, self.active_dims]
-        else:
-            Y_sub = None
+        Y_sub = Y[:, self.active_dims] if Y is not None else None
         return self.base_kernel(X_sub, Y_sub, eval_gradient=eval_gradient)
 
-    def diag(self, X: np.ndarray) -> np.ndarray:
-        X_sub = X[:, self.active_dims]
-        return self.base_kernel.diag(X_sub)
+    def diag(self, X):
+        return self.base_kernel.diag(X[:, self.active_dims])
 
-    def is_stationary(self) -> bool:
+    def is_stationary(self):
         return self.base_kernel.is_stationary()
 
-    def __repr__(self) -> str:
-        return f"MaskedKernel({repr(self.base_kernel)}, active_dims={self.active_dims.tolist()})"
+    def __repr__(self):
+        return f"MaskedKernel({repr(self.base_kernel)}, active_dims={self.active_dims})"
+
+    def get_params(self, deep=True):
+        # This is key for scikit-learn compatibility!
+        return {'base_kernel': self.base_kernel, 'active_dims': self.active_dims}
 
 def build_sklearn_kernel(parsed: dict, noise_log: Optional[float] = None) -> Kernel:
     if parsed['type'] == 'sum':
