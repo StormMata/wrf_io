@@ -1,6 +1,7 @@
 import gc
 import re
 import os
+import math
 import time
 import glob
 import pickle
@@ -19,8 +20,7 @@ from multiprocessing import Pool
 from rich.console import Console
 from numpy.typing import ArrayLike
 from matplotlib.gridspec import GridSpec
-from sklearn.gaussian_process.kernels import Kernel, WhiteKernel
-from sklearn.gaussian_process.kernels import RBF, ExpSineSquared, ConstantKernel as C
+from sklearn.gaussian_process.kernels import RBF, ExpSineSquared, Kernel, WhiteKernel, Sum, Product, DotProduct, RationalQuadratic, ConstantKernel as C
 
 def load_wrfout(top_dir: str):
 
@@ -928,11 +928,11 @@ def build_kernel_from_search(file_path: str):
     pprint.pprint(parsed_kernel)
 
     # Build
-    my_kernel = build_sklearn_kernel(parsed_kernel, noise_log=noise_log)
+    my_kernel_obj = build_sklearn_kernel(parsed_kernel, noise_log=noise_log)
     print("\nFinal Scikit-learn kernel:")
-    print(my_kernel)
+    print(my_kernel_obj)
 
-    return my_kernel
+    return parsed_kernel, my_kernel_obj
 
 def extract_kernel_line(file_path: str) -> str:
     with open(file_path, 'r') as file:
@@ -966,13 +966,30 @@ def parse_kernel_expr(expr: str) -> dict:
     elif expr.startswith('MaskKernel('):
         ndim = int(re.search(r'ndim=(\d+)', expr).group(1))
         active_dimension = int(re.search(r'active_dimension=(\d+)', expr).group(1))
-        base_kernel_match = re.search(r'base_kernel=(.+\))$', expr)
-        base_kernel_str = base_kernel_match.group(1)
+        # Find base_kernel= using parenthesis-matching (since it's not always at the end)
+        m = re.search(r'base_kernel=', expr)
+        if not m:
+            raise ValueError(f"base_kernel= not found in MaskKernel: {expr}")
+        start = m.end()
+        # Starting from start, extract kernel expr up to matching parentheses.
+        depth = 0
+        i = start
+        # Find where the inner kernel ends
+        while i < len(expr):
+            c = expr[i]
+            if c == '(':
+                depth += 1
+            elif c == ')':
+                if depth == 0:
+                    break
+                depth -= 1
+            i += 1
+        base_kernel_str = expr[start:i]
         return {
             'type': 'mask',
             'ndim': ndim,
             'active_dimension': active_dimension,
-            'base_kernel': parse_kernel_expr(base_kernel_str)
+            'base_kernel': parse_kernel_expr(base_kernel_str.strip())
         }
     # SqExpKernel(lengthscale=..., output_variance=...)
     elif expr.startswith('SqExpKernel('):
@@ -990,6 +1007,23 @@ def parse_kernel_expr(expr: str) -> dict:
             'lengthscale': float(params['lengthscale']),
             'period': float(params['period']),
             'variance': float(params['output_variance'])
+        }
+    # LinKernel(offset=..., lengthscale=..., location=...)
+    elif expr.startswith('LinKernel('):
+        params = dict(re.findall(r'(\w+)=([-\d\.]+)', expr))
+        return {
+            'type': 'lin',
+            'offset': float(params['offset']),
+            'lengthscale': float(params['lengthscale']),
+            'location': float(params['location'])
+        }
+    elif expr.startswith('RQKernel('):
+        params = dict(re.findall(r'(\w+)=([-\d\.]+)', expr))
+        return {
+            'type': 'rq',
+            'lengthscale': float(params['lengthscale']),
+            'variance': float(params['output_variance']),
+            'alpha': float(params['alpha'])
         }
     else:
         raise ValueError(f"Unknown kernel: {expr}")
@@ -1056,6 +1090,15 @@ def build_sklearn_kernel(parsed: dict, noise_log: Optional[float] = None) -> Ker
         period = np.exp(parsed['period'])
         variance = np.exp(parsed['variance'])
         result = C(variance) * RBF(length_scale=lengthscale) * ExpSineSquared(length_scale=lengthscale, periodicity=period)
+    elif parsed['type'] == 'lin':
+        # Use offset as sigma_0 -- exponential because that's how your other params are handled
+        sigma_0 = np.exp(parsed['offset'])
+        result = DotProduct(sigma_0=sigma_0)
+    elif parsed['type'] == 'rq':
+        lengthscale = np.exp(parsed['lengthscale'])
+        variance = np.exp(parsed['variance'])
+        alpha = np.exp(parsed['alpha'])
+        result = C(variance) * RationalQuadratic(length_scale=lengthscale, alpha=alpha)
     else:
         raise ValueError(f"Unknown kernel type: {parsed['type']}")
 
@@ -1072,3 +1115,178 @@ def set_active_dims(kernel: Kernel, active_dims: List[int]) -> Kernel:
     except Exception:
         kernel.active_dims = active_dims  # For kernels where .active_dims exists
         return kernel
+
+def compare_kernel_dict_and_sklearn(kernel_dict, sk_kernel, tol=1e-6, path='root', verbose=True):
+    """Recursively check equivalence of parsed kernel dict and sklearn kernel structure."""
+
+    # Helper to extract child kernels from sklearn sum/product
+    def get_sklearn_children(ker, op):
+        # For operator overloading, sklearn makes compound kernels with .kernels attribute
+        if hasattr(ker, 'kernels'):
+            return ker.kernels
+        # For 2-term (left op right) kernels in sklearn <=1.0
+        if hasattr(ker, 'k1') and hasattr(ker, 'k2'):
+            return [ker.k1, ker.k2]
+        if op == '+' and isinstance(ker, (sklearn.gaussian_process.kernels.Sum,)):
+            return [ker.k1, ker.k2]
+        if op == '*' and isinstance(ker, (sklearn.gaussian_process.kernels.Product,)):
+            return [ker.k1, ker.k2]
+        if verbose:
+            print(f"{path}: Can't extract children for operator kernel {ker}")
+        return []
+    
+    ktype = kernel_dict['type']
+    
+    ## SUM
+    if ktype == 'sum':
+        sk_children = []
+        def flatten_sum(k):
+            if isinstance(k, Sum):
+                flatten_sum(k.k1)
+                flatten_sum(k.k2)
+            elif hasattr(k, "kernels"):
+                for child in k.kernels:
+                    flatten_sum(child)
+            elif not isinstance(k, WhiteKernel):
+                sk_children.append(k)
+        flatten_sum(sk_kernel)
+        sk_children = [c for c in sk_children if not isinstance(c, WhiteKernel)]
+        if verbose:
+            print(f"{path}: kernel_dict children:", kernel_dict['children'])
+            print(f"{path}: sk_children:", sk_children)
+        if len(kernel_dict['children']) != len(sk_children):
+            if verbose:
+                print(f"{path}: Sum length mismatch: {len(kernel_dict['children'])} vs {len(sk_children)}")
+            return False
+        for i, (kd, sk) in enumerate(zip(kernel_dict['children'], sk_children)):
+            if not compare_kernel_dict_and_sklearn(kd, sk, tol=tol, path=path+f".sum[{i}]", verbose=verbose):
+                return False
+        return True
+
+    ## PRODUCT
+    elif ktype == 'product':
+        sk_children = []
+        def flatten_prod(k):
+            if isinstance(k, Product):
+                flatten_prod(k.k1)
+                flatten_prod(k.k2)
+            elif hasattr(k, 'kernels'):
+                for child in k.kernels:
+                    flatten_prod(child)
+            else:
+                sk_children.append(k)
+        flatten_prod(sk_kernel)
+        if verbose:
+            print(f"{path}: kernel_dict children:", kernel_dict['children'])
+            print(f"{path}: sk_children:", sk_children)
+        if len(kernel_dict['children']) != len(sk_children):
+            if verbose: print(f"{path}: Product length mismatch: {len(kernel_dict['children'])} vs {len(sk_children)}")
+            return False
+        for i, (kd, sk) in enumerate(zip(kernel_dict['children'], sk_children)):
+            if not compare_kernel_dict_and_sklearn(kd, sk, tol=tol, path=path+f".product[{i}]", verbose=verbose):
+                return False
+        return True
+
+    ## MASK
+    elif ktype == 'mask':
+        # Should be your MaskedKernel class
+        if not sk_kernel.__class__.__name__.lower().startswith("maskedkernel"):
+            if verbose: print(f"{path}: Not a MaskedKernel, got {sk_kernel}")
+            return False
+        # Compare active dims/dimension logic
+        want_dim = [kernel_dict['active_dimension']]
+        sk_dim = getattr(sk_kernel, 'active_dims', None)
+        if sk_dim != want_dim:
+            if verbose: print(f"{path}: Mask active_dims mismatch: {sk_dim} vs {want_dim}")
+            return False
+        # Compare inner/base
+        # Below line fixed:
+        base_res = compare_kernel_dict_and_sklearn(kernel_dict['base_kernel'], sk_kernel.base_kernel, tol=tol, path=path+'.mask', verbose=verbose)
+        return base_res
+
+    ## LIN
+    elif ktype == 'lin':
+        if sk_kernel.__class__.__name__ != 'DotProduct':
+            if verbose: print(f"{path}: Not a DotProduct, got {sk_kernel}")
+            return False
+        target = np.exp(kernel_dict['offset'])
+        val = getattr(sk_kernel, 'sigma_0', None)
+        if not np.isclose(target, val, atol=tol, rtol=tol):
+            if verbose: print(f"{path}: DotProduct sigma_0 mismatch: {val} vs {target}")
+            return False
+        return True
+
+    ## SQEXP
+    elif ktype == 'sqexp':
+        # Should be ConstantKernel * RBF
+        # Unwrap ConstantKernel if present
+        k = sk_kernel
+        if k.__class__.__name__ == "Product":
+            k1, k2 = k.k1, k.k2
+            if k1.__class__.__name__ == "ConstantKernel":
+                variance = k1.constant_value
+                rbf = k2
+            elif k2.__class__.__name__ == "ConstantKernel":
+                variance = k2.constant_value
+                rbf = k1
+            else:
+                if verbose: print(f"{path}: Product structure unrecognized for sqexp")
+                return False
+            if rbf.__class__.__name__ != "RBF":
+                if verbose: print(f"{path}: Expected RBF kernel, got {rbf}")
+                return False
+            want_var = np.exp(kernel_dict['variance'])
+            want_len = np.exp(kernel_dict['lengthscale'])
+            if not np.isclose(want_var, variance, atol=tol, rtol=tol):
+                if verbose: print(f"{path}: sqexp variance mismatch: {variance} vs {want_var}")
+                return False
+            if not np.isclose(want_len, rbf.length_scale, atol=tol, rtol=tol):
+                if verbose: print(f"{path}: sqexp length_scale mismatch: {rbf.length_scale} vs {want_len}")
+                return False
+            return True
+        else:
+            if verbose: print(f"{path}: sqexp not a Product (Constant*RBF): {k}")
+            return False
+
+    ## RQ (RationalQuadratic)
+    elif ktype == 'rq':
+        # Should be ConstantKernel * RationalQuadratic
+        k = sk_kernel
+        if k.__class__.__name__ == "Product":
+            k1, k2 = k.k1, k.k2
+            if k1.__class__.__name__ == "ConstantKernel":
+                variance = k1.constant_value
+                rq = k2
+            elif k2.__class__.__name__ == "ConstantKernel":
+                variance = k2.constant_value
+                rq = k1
+            else:
+                if verbose: print(f"{path}: Product structure unrecognized for rq")
+                return False
+            if rq.__class__.__name__ != "RationalQuadratic":
+                if verbose: print(f"{path}: Expected RationalQuadratic kernel, got {rq}")
+                return False
+            want_var = np.exp(kernel_dict['variance'])
+            want_len = np.exp(kernel_dict['lengthscale'])
+            want_alpha = np.exp(kernel_dict['alpha'])
+            if not np.isclose(want_var, variance, atol=tol, rtol=tol):
+                if verbose: print(f"{path}: rq variance mismatch: {variance} vs {want_var}")
+                return False
+            if not np.isclose(want_len, rq.length_scale, atol=tol, rtol=tol):
+                if verbose: print(f"{path}: rq length_scale mismatch: {rq.length_scale} vs {want_len}")
+                return False
+            if not np.isclose(want_alpha, rq.alpha, atol=tol, rtol=tol):
+                if verbose: print(f"{path}: rq alpha mismatch: {rq.alpha} vs {want_alpha}")
+                return False
+            return True
+        else:
+            if verbose: print(f"{path}: rq not a Product (Constant*RQ): {k}")
+            return False
+
+    ## White noise: Can be in a sum term if noise_log provided.
+    # Not handled directly in dict -- but could check for stray WhiteKernel in tree.
+
+    ## Unknown type
+    else:
+        if verbose: print(f"{path}: Unknown kernel type '{ktype}'")
+        return False
