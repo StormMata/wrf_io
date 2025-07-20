@@ -4,6 +4,7 @@ import os
 import math
 import time
 import glob
+import joblib
 import pickle
 import pprint
 import netCDF4
@@ -931,6 +932,17 @@ def build_kernel_from_search(file_path: str):
     my_kernel_obj = build_sklearn_kernel(parsed_kernel, noise_log=noise_log)
     print("\nFinal Scikit-learn kernel:")
     print(my_kernel_obj)
+
+    save_directory = Path(file_path).parent
+    temp_filename = Path(file_path).name
+
+    # Strip suffix and append new one
+    obj_filename = temp_filename.replace("_result.txt", "_obj.pkl")
+
+    save_path = save_directory / obj_filename
+
+    joblib.dump(my_kernel_obj, save_path)
+    print(f"\nKernel saved at: {save_path}")
 
     return parsed_kernel, my_kernel_obj
 
