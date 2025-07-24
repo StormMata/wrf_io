@@ -16,20 +16,72 @@ import matplotlib.ticker as mticker
 from wrf_io import sweep
 from pathlib import Path
 from wrf_io import preproc
-from typing import Dict, Any, Optional, List
+from scipy.io import loadmat
 from multiprocessing import Pool
 from rich.console import Console
 from numpy.typing import ArrayLike
 from matplotlib.gridspec import GridSpec
+from typing import Dict, Any, Optional, List, Tuple
+from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ExpSineSquared, Kernel, WhiteKernel, Sum, Product, DotProduct, RationalQuadratic, ConstantKernel as C
 
-def load_wrfout(top_dir: str):
+def madsen_ref() -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Generate a reference curve of axial induction factor (a) versus thrust coefficient (Ct)
+    using the polynomial model from Madsen et al. (2020).
 
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: A tuple containing:
+            - a (np.ndarray): Induction factor values
+            - ct (np.ndarray): Thrust coefficient values
+    """
+    ct = np.linspace(0.0, 1.5, 100)
+
+    k1 = 0.2460
+    k2 = 0.0586
+    k3 = 0.0883
+
+    a = k3 * ct**3 + k2 * ct**2 + k1 * ct
+
+    return a, ct
+
+
+def classical_ref() -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Generate a reference curve of axial induction factor (a) versus thrust coefficient (Ct)
+    using 1D momentum theory.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: A tuple containing:
+            - a (np.ndarray): Induction factor values
+            - ct (np.ndarray): Thrust coefficient values
+    """
+    a = np.linspace(0,1.0,100)
+
+    ct = 4 * a * (1 - a)
+
+    return a, ct
+
+
+# def load_train_data(path: str):
+
+
+
+def load_wrfout(top_dir: str) -> List[Dict[str, Any]]:
+    """
+    Load processed WRF output data from a set of .npz files in the specified directory.
+
+    Args:
+        top_dir (str): Path to the top-level directory containing WRF output subdirectories.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, each containing data loaded from a .npz file.
+    """
     files, cases = get_dirs(top_dir)
 
-    wrf_data = []
-    for i in range(len(files)):
-        wrf_data.append(dict(np.load(files[i] + cases[i]+'_lite.npz')))
+    wrf_data: List[Dict[str, Any]] = []
+    for file, case in zip(files, cases):
+        wrf_data.append(dict(np.load(f"{file}{case}_lite.npz")))
 
     return wrf_data
 
@@ -52,15 +104,15 @@ def get_dirs(top_dir: str):
 
 def rmsd_window(data: ArrayLike, window: int, interval: int) -> ArrayLike:
     """
-    Compute the root mean square deviation (RMSD)
+    Compute the root mean square deviation (RMSD) over a rolling window.
 
-    Parameters:
-        time_series (ArrayLike): Data
-        window (int): window size in seconds
-        interval (int): Data frequency in seconds
+    Args:
+        data (Union[np.ndarray, list]): Input data as a 1D array or list.
+        window (int): Window size in seconds.
+        interval (int): Data sampling interval in seconds.
 
     Returns:
-        ArrayLike: RMSD of data
+        np.ndarray: RMSD values computed over the rolling window.
     """
     # Flatten the input data to ensure it's 1D
     data = np.ravel(data)
@@ -840,6 +892,7 @@ def extract_sounding(params: Dict[str, Any], local: bool, path: Optional[str] = 
     
     return data_dict
 
+
 def rotGlobalToLocal(Nelm,Nsct,u_rotor,v_rotor,w_rotor):
 
     precone = 0
@@ -874,6 +927,7 @@ def rotGlobalToLocal(Nelm,Nsct,u_rotor,v_rotor,w_rotor):
 
     return Ux, Utau, Ur
 
+
 def load_params(path: str) -> Dict[str, Any]:
 
     with open(path, 'rb') as f:
@@ -888,6 +942,7 @@ def load_params(path: str) -> Dict[str, Any]:
     print("\n".join(output_lines))
 
     return opt_params
+
 
 def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, path: Optional[str] = None) -> Dict[str, Any]:
 
@@ -906,7 +961,9 @@ def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, pa
 
 # ------------------------ GP search functions
 
-def build_kernel_from_search(file_path: str):
+def build_kernel_from_search(params, noise: bool):
+
+    file_path = params['base_path'] + params['kernel_file']
     # Extract kernel line
     kernel_line = extract_kernel_line(file_path)
     print("Kernel line:")
@@ -928,6 +985,9 @@ def build_kernel_from_search(file_path: str):
     print("\nKernel structure:")
     pprint.pprint(parsed_kernel)
 
+    if noise is False:
+        noise_log = None
+
     # Build
     my_kernel_obj = build_sklearn_kernel(parsed_kernel, noise_log=noise_log)
     print("\nFinal Scikit-learn kernel:")
@@ -944,7 +1004,9 @@ def build_kernel_from_search(file_path: str):
     joblib.dump(my_kernel_obj, save_path)
     print(f"\nKernel saved at: {save_path}")
 
-    return parsed_kernel, my_kernel_obj
+    gpr = GaussianProcessRegressor(kernel=my_kernel_obj, optimizer=None, normalize_y=False)
+
+    return my_kernel_obj, gpr
 
 def extract_kernel_line(file_path: str) -> str:
     with open(file_path, 'r') as file:
@@ -1128,177 +1190,55 @@ def set_active_dims(kernel: Kernel, active_dims: List[int]) -> Kernel:
         kernel.active_dims = active_dims  # For kernels where .active_dims exists
         return kernel
 
-def compare_kernel_dict_and_sklearn(kernel_dict, sk_kernel, tol=1e-6, path='root', verbose=True):
-    """Recursively check equivalence of parsed kernel dict and sklearn kernel structure."""
+def extract_data(params, transform: bool):
 
-    # Helper to extract child kernels from sklearn sum/product
-    def get_sklearn_children(ker, op):
-        # For operator overloading, sklearn makes compound kernels with .kernels attribute
-        if hasattr(ker, 'kernels'):
-            return ker.kernels
-        # For 2-term (left op right) kernels in sklearn <=1.0
-        if hasattr(ker, 'k1') and hasattr(ker, 'k2'):
-            return [ker.k1, ker.k2]
-        if op == '+' and isinstance(ker, (sklearn.gaussian_process.kernels.Sum,)):
-            return [ker.k1, ker.k2]
-        if op == '*' and isinstance(ker, (sklearn.gaussian_process.kernels.Product,)):
-            return [ker.k1, ker.k2]
-        if verbose:
-            print(f"{path}: Can't extract children for operator kernel {ker}")
-        return []
-    
-    ktype = kernel_dict['type']
-    
-    ## SUM
-    if ktype == 'sum':
-        sk_children = []
-        def flatten_sum(k):
-            if isinstance(k, Sum):
-                flatten_sum(k.k1)
-                flatten_sum(k.k2)
-            elif hasattr(k, "kernels"):
-                for child in k.kernels:
-                    flatten_sum(child)
-            elif not isinstance(k, WhiteKernel):
-                sk_children.append(k)
-        flatten_sum(sk_kernel)
-        sk_children = [c for c in sk_children if not isinstance(c, WhiteKernel)]
-        if verbose:
-            print(f"{path}: kernel_dict children:", kernel_dict['children'])
-            print(f"{path}: sk_children:", sk_children)
-        if len(kernel_dict['children']) != len(sk_children):
-            if verbose:
-                print(f"{path}: Sum length mismatch: {len(kernel_dict['children'])} vs {len(sk_children)}")
-            return False
-        for i, (kd, sk) in enumerate(zip(kernel_dict['children'], sk_children)):
-            if not compare_kernel_dict_and_sklearn(kd, sk, tol=tol, path=path+f".sum[{i}]", verbose=verbose):
-                return False
-        return True
+    train_path = params['base_path'] + params['train_data']
+    test_path  = params['base_path'] + params['test_data']
 
-    ## PRODUCT
-    elif ktype == 'product':
-        sk_children = []
-        def flatten_prod(k):
-            if isinstance(k, Product):
-                flatten_prod(k.k1)
-                flatten_prod(k.k2)
-            elif hasattr(k, 'kernels'):
-                for child in k.kernels:
-                    flatten_prod(child)
-            else:
-                sk_children.append(k)
-        flatten_prod(sk_kernel)
-        if verbose:
-            print(f"{path}: kernel_dict children:", kernel_dict['children'])
-            print(f"{path}: sk_children:", sk_children)
-        if len(kernel_dict['children']) != len(sk_children):
-            if verbose: print(f"{path}: Product length mismatch: {len(kernel_dict['children'])} vs {len(sk_children)}")
-            return False
-        for i, (kd, sk) in enumerate(zip(kernel_dict['children'], sk_children)):
-            if not compare_kernel_dict_and_sklearn(kd, sk, tol=tol, path=path+f".product[{i}]", verbose=verbose):
-                return False
-        return True
+    X_train_mat = loadmat(train_path)
+    X_test_mat  = loadmat(test_path)
 
-    ## MASK
-    elif ktype == 'mask':
-        # Should be your MaskedKernel class
-        if not sk_kernel.__class__.__name__.lower().startswith("maskedkernel"):
-            if verbose: print(f"{path}: Not a MaskedKernel, got {sk_kernel}")
-            return False
-        # Compare active dims/dimension logic
-        want_dim = [kernel_dict['active_dimension']]
-        sk_dim = getattr(sk_kernel, 'active_dims', None)
-        if sk_dim != want_dim:
-            if verbose: print(f"{path}: Mask active_dims mismatch: {sk_dim} vs {want_dim}")
-            return False
-        # Compare inner/base
-        # Below line fixed:
-        base_res = compare_kernel_dict_and_sklearn(kernel_dict['base_kernel'], sk_kernel.base_kernel, tol=tol, path=path+'.mask', verbose=verbose)
-        return base_res
+    X_train = X_train_mat['X']
+    y_train = X_train_mat['y'].ravel()
 
-    ## LIN
-    elif ktype == 'lin':
-        if sk_kernel.__class__.__name__ != 'DotProduct':
-            if verbose: print(f"{path}: Not a DotProduct, got {sk_kernel}")
-            return False
-        target = np.exp(kernel_dict['offset'])
-        val = getattr(sk_kernel, 'sigma_0', None)
-        if not np.isclose(target, val, atol=tol, rtol=tol):
-            if verbose: print(f"{path}: DotProduct sigma_0 mismatch: {val} vs {target}")
-            return False
-        return True
+    X_test = X_test_mat['X']
+    y_test = X_test_mat['y'].ravel()
 
-    ## SQEXP
-    elif ktype == 'sqexp':
-        # Should be ConstantKernel * RBF
-        # Unwrap ConstantKernel if present
-        k = sk_kernel
-        if k.__class__.__name__ == "Product":
-            k1, k2 = k.k1, k.k2
-            if k1.__class__.__name__ == "ConstantKernel":
-                variance = k1.constant_value
-                rbf = k2
-            elif k2.__class__.__name__ == "ConstantKernel":
-                variance = k2.constant_value
-                rbf = k1
-            else:
-                if verbose: print(f"{path}: Product structure unrecognized for sqexp")
-                return False
-            if rbf.__class__.__name__ != "RBF":
-                if verbose: print(f"{path}: Expected RBF kernel, got {rbf}")
-                return False
-            want_var = np.exp(kernel_dict['variance'])
-            want_len = np.exp(kernel_dict['lengthscale'])
-            if not np.isclose(want_var, variance, atol=tol, rtol=tol):
-                if verbose: print(f"{path}: sqexp variance mismatch: {variance} vs {want_var}")
-                return False
-            if not np.isclose(want_len, rbf.length_scale, atol=tol, rtol=tol):
-                if verbose: print(f"{path}: sqexp length_scale mismatch: {rbf.length_scale} vs {want_len}")
-                return False
-            return True
-        else:
-            if verbose: print(f"{path}: sqexp not a Product (Constant*RBF): {k}")
-            return False
+    return X_train, y_train, X_test, y_test
 
-    ## RQ (RationalQuadratic)
-    elif ktype == 'rq':
-        # Should be ConstantKernel * RationalQuadratic
-        k = sk_kernel
-        if k.__class__.__name__ == "Product":
-            k1, k2 = k.k1, k.k2
-            if k1.__class__.__name__ == "ConstantKernel":
-                variance = k1.constant_value
-                rq = k2
-            elif k2.__class__.__name__ == "ConstantKernel":
-                variance = k2.constant_value
-                rq = k1
-            else:
-                if verbose: print(f"{path}: Product structure unrecognized for rq")
-                return False
-            if rq.__class__.__name__ != "RationalQuadratic":
-                if verbose: print(f"{path}: Expected RationalQuadratic kernel, got {rq}")
-                return False
-            want_var = np.exp(kernel_dict['variance'])
-            want_len = np.exp(kernel_dict['lengthscale'])
-            want_alpha = np.exp(kernel_dict['alpha'])
-            if not np.isclose(want_var, variance, atol=tol, rtol=tol):
-                if verbose: print(f"{path}: rq variance mismatch: {variance} vs {want_var}")
-                return False
-            if not np.isclose(want_len, rq.length_scale, atol=tol, rtol=tol):
-                if verbose: print(f"{path}: rq length_scale mismatch: {rq.length_scale} vs {want_len}")
-                return False
-            if not np.isclose(want_alpha, rq.alpha, atol=tol, rtol=tol):
-                if verbose: print(f"{path}: rq alpha mismatch: {rq.alpha} vs {want_alpha}")
-                return False
-            return True
-        else:
-            if verbose: print(f"{path}: rq not a Product (Constant*RQ): {k}")
-            return False
+def load_scalars(params):
 
-    ## White noise: Can be in a sum term if noise_log provided.
-    # Not handled directly in dict -- but could check for stray WhiteKernel in tree.
+    with open(params['base_path'] + params['cot_scalar'], 'rb') as f:
+        scalar_cot = pickle.load(f)
 
-    ## Unknown type
+    with open(params['base_path'] + params['shear_scalar'], 'rb') as f:
+        scalar_shear = pickle.load(f)
+
+    with open(params['base_path'] + params['veer_scalar'], 'rb') as f:
+        scalar_veer = pickle.load(f)
+
+    with open(params['base_path'] + params['ind_scalar'], 'rb') as f:
+        scalar_ind = pickle.load(f)
+
+    with open(params['base_path'] + params['enc_scalar'], 'rb') as f:
+        scalar_enc = pickle.load(f)
+
+    return scalar_cot, scalar_ind, scalar_shear, scalar_veer, scalar_enc
+
+def gpr_predict(params, gpr, set: str, std: bool):
+
+    if set == 'test':
+        X_train, y_train, X_test, _ = extract_data(params, transform = False)
+
+    gpr.fit(X_train, y_train)
+
+    A_pred, sigma = gpr.predict(X_test, return_std=True)
+
+    _, ind_scalar, _, _, _ = load_scalars(params)
+
+    a_pred = ind_scalar.inverse_transform(A_pred.reshape(-1, 1))
+
+    if std:
+        return a_pred, sigma
     else:
-        if verbose: print(f"{path}: Unknown kernel type '{ktype}'")
-        return False
+        return a_pred
