@@ -218,7 +218,8 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
         wdir_inf = np.atan2(v_inf,u_inf).T
 
         # Extract u and v velocity components at the rotor disk
-        u_rotor = np.mean(les_data[count]['shapiroM'][0] * les_data[count]['u'],axis=0)
+        # u_rotor = np.mean(les_data[count]['shapiroM'][0] * les_data[count]['u'],axis=0)
+        u_rotor = np.mean(les_data[count]['u'],axis=0)
         v_rotor = np.mean(les_data[count]['v'],axis=0)
         w_rotor = np.mean(les_data[count]['w'],axis=0)
 
@@ -261,6 +262,20 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
 
         Vtn = omega * r_mat * R - Vtn_NR
 
+#-------------------------------------------
+        # Vax = u_rotor
+        # Vtn = (
+        #     (1 + 0) * omega * r_mat * R
+        #     - v_rotor
+        #     * np.cos(t)
+        #     * np.sin(0)
+        # )
+#-------------------------------------------
+
+        # phi = np.arctan2(Vax, Vtn)
+        # aoa = phi - rotor.twist(r_mat)
+        # aoa = np.clip(aoa, -np.pi / 2, np.pi / 2)
+
         # Relative velocity
         W = np.sqrt(Vax**2 + Vtn**2)
 
@@ -274,7 +289,8 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
         Cax = Cl * np.cos(phi) + Cd * np.sin(phi)
 
         # Local CT
-        ct = sigma_r * (W/U_hub)**2 * Cax
+        # ct = sigma_r * (W/U_hub)**2 * Cax
+        ct = sigma_r * (W/(np.sqrt(u_func(Y)**2 + v_func(Y)**2)).T)**2 * Cax
 
         L = 1/2 * rho * chord * (Cl * W**2)
         D = 1/2 * rho * chord * (Cd * W**2)
@@ -293,7 +309,7 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
         wrf_vax_real[:,:,count] = np.mean(les_data[count]['v1'], axis=0)
         wrf_vtn_real[:,:,count] = np.mean(les_data[count]['v_tan'], axis=0)
     
-        wrf_vtn_NR[:,:,count]   = Vtn_NR
+        # wrf_vtn_NR[:,:,count]   = Vtn_NR
         wrf_vtn_NR_real[:,:,count] = np.mean(les_data[count]['v_tan_no_rot'], axis=0)
 
         wrf_phi[:,:,count]      = phi
@@ -307,8 +323,11 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
 
         wrf_cax[:,:,count]      = Cax
 
-        wrf_cot_rot[count]      = postproc.rotor_average(ct,r,theta)
-        wrf_ind_rot[count]      = postproc.rotor_average(1 - u_rotor/ U_hub,r,theta)
+        # wrf_cot_rot[count]      = postproc.rotor_average(ct,r,theta)
+        # wrf_ind_rot[count]      = postproc.rotor_average(1 - u_rotor/ U_hub,r,theta)
+
+        wrf_cot_rot[count]      = postproc.rotor_average(ct,np.linspace(0,0.99999,26),theta)
+        wrf_ind_rot[count]      = postproc.rotor_average(1 - u_rotor/ u_func(Y),theta)
 
         wrf_cot_ann[:,count]    = postproc.annulus_average(ct,theta)
         wrf_ind_ann[:,count]    = postproc.annulus_average(1 - u_rotor/ U_hub,theta)
@@ -372,56 +391,87 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
         }
 
 
-def scale_and_encode(input_dict):
+def scale_and_encode(input_dict, training: bool, scalars: Optional[Dict] = None):
     scaled_dict = {}
-    scalers_dict = {}
+    scalers_dict = {} if training else scalars
 
-    # Generate one-hot encoded regimes
+    # Passthrough
+    passthrough_keys = ['r_annulus']
+
+    # Keys to standard scale
+    standard_keys = [
+        'cot_local', 'ind_local',
+        'cot_annulus', 'ind_annulus',
+        'cot_rotor', 'ind_rotor',
+        'shears_rotor', 'veers_rotor',
+        'shears_annulus', 'veers_annulus',
+    ]
+
+    # Compute regimes from shear and veer
     def compute_regimes(shear, veer, suffix):
         regimes = (
             (shear.flatten() != 0).astype(int) * 2 + (veer.flatten() != 0).astype(int)
         ).reshape(-1, 1)
-        encoder = OneHotEncoder(sparse_output=False)
-        onehot = encoder.fit_transform(regimes)
-        scaled_dict[f'shear_regime_{suffix}'] = onehot
-        scalers_dict[f'encoder_{suffix}'] = encoder
-    
-    # Keys that are already non-dimensional and should not be scaled
-    passthrough_keys = ['r_annulus']
-    
-    compute_regimes(
-        input_dict['shears_rotor'], input_dict['veers_rotor'], 'rotor'
-    )
-    compute_regimes(
-        input_dict['shears_annulus'], input_dict['veers_annulus'], 'annulus'
-    )
 
-    # Scale all but the passthrough keys
-    for key, value in input_dict.items():
-        if key in passthrough_keys:
-            scaled_dict[key] = value
-            continue
-        
-        scaler = StandardScaler()
-        
+        if training:
+            encoder = OneHotEncoder(sparse_output=False)
+            onehot = encoder.fit_transform(regimes)
+            scalers_dict[f'encoder_{suffix}'] = encoder
+        else:
+            encoder = scalars[f'encoder_{suffix}']
+            onehot = encoder.transform(regimes)
+
+        scaled_dict[f'shear_regime_{suffix}'] = onehot
+
+    compute_regimes(input_dict['shears_rotor'], input_dict['veers_rotor'], 'rotor')
+    compute_regimes(input_dict['shears_annulus'], input_dict['veers_annulus'], 'annulus')
+
+    # Handle passthrough keys
+    for key in passthrough_keys:
+        scaled_dict[key] = input_dict[key]
+
+    # Scale remaining keys
+    for key in standard_keys:
+        value = input_dict[key]
+
+        if training:
+            scaler = StandardScaler()
+        else:
+            scaler = scalars[f'scaler_{key}']
+
+        # Reshape based on dimensions — always treat as (num_points, 1) for 1D/2D
         if value.ndim == 1:
-            scaled_value = scaler.fit_transform(value[:, None]).ravel()
+            data = value[:, None]
         elif value.ndim == 2:
-            flat = value.flatten()[:, None]
-            scaled_flat = scaler.fit_transform(flat).ravel()
-            scaled_value = scaled_flat.reshape(value.shape)
+            data = value.flatten()[:, None]  # flatten grid -> (num_points, 1)
         elif value.ndim == 3:
-            flat = value.reshape(-1, value.shape[-1])
-            scaled_flat = scaler.fit_transform(flat)
-            scaled_value = scaled_flat.reshape(value.shape)
+            # data = value.reshape(-1, value.shape[-1])  # e.g., (N, features)
+            data = value.flatten()[:, None]  # flatten grid -> (num_points, 1)
         else:
             raise ValueError(f"Unsupported shape for key '{key}': {value.shape}")
-        
+
+        # Fit or transform
+        if training:
+            scaled_data = scaler.fit_transform(data)
+            scalers_dict[f'scaler_{key}'] = scaler
+            print(f"{key}: scaler trained with {scaler.n_features_in_} features")
+        else:
+            print(f"[{key}] training={training}, scaler expects {scaler.n_features_in_}, got {data.shape[1]}")
+
+            scaled_data = scaler.transform(data)
+
+        # Reshape back to original
+        if value.ndim == 1:
+            scaled_value = scaled_data.ravel()
+        elif value.ndim == 2:
+            scaled_value = scaled_data.ravel().reshape(value.shape)
+        elif value.ndim == 3:
+            scaled_value = scaled_data.reshape(value.shape)
+
         scaled_dict[key] = scaled_value
-        scalers_dict[f'scaler_{key}'] = scaler
 
-    return scaled_dict, scalers_dict
+    return scaled_dict, scalers_dict if training else None
 
 
-def save_dataset():
+# def save_dataset():
     
