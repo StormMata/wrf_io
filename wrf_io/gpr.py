@@ -122,23 +122,8 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
     X = R * np.sin(T)
     Y = (R * np.cos(T)) * les_data[0]['radius'] + z_hh
 
-    wrf_vax      = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_vtn      = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_vax_real = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_vtn_real = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_vtn_NR   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_vtn_NR_real= np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
     wrf_U_inf    = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
     wrf_wdir_inf = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_U        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_wdir     = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_W        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_W_real   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
 
     wrf_CL       = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
     wrf_CD       = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
@@ -158,14 +143,6 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
     wrf_FN_real  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
     wrf_FT_real  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
 
-    wrf_phi      = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_phi_real = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_aoa      = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_aoa_real = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_cax      = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
     wrf_pow      = np.zeros(len(casenames),dtype='longdouble')
     wrf_thr      = np.zeros(len(casenames),dtype='longdouble')
 
@@ -173,8 +150,6 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
     wrf_thr_real = np.zeros(len(casenames),dtype='longdouble')
 
     Uhub         = np.zeros(len(casenames), dtype=float)
-
-    wrf_tsr      = np.zeros(len(casenames), dtype=float)
     wrf_omg      = np.zeros(len(casenames), dtype=float)
 
     wrf_cot_rot  = np.zeros(len(casenames), dtype=float)
@@ -217,127 +192,63 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
 
         wdir_inf = np.atan2(v_inf,u_inf).T
 
-        # Extract u and v velocity components at the rotor disk
-        # u_rotor = np.mean(les_data[count]['shapiroM'][0] * les_data[count]['u'],axis=0)
-        u_rotor = np.mean(les_data[count]['u'],axis=0)
-        v_rotor = np.mean(les_data[count]['v'],axis=0)
-        w_rotor = np.mean(les_data[count]['w'],axis=0)
+        r = les_data[count]['rOverR'] * rotor.R
 
-        # Magnitude of wind speed at rotor disk
-        U = np.sqrt(u_rotor**2 + v_rotor**2)
+        # Compute induction
+        ind = 1 - np.mean(les_data[count]['u'],axis=0) / u_inf.T
 
-        # Local wind misalignment angle at the rotor disk
-        wdir = np.atan2(v_rotor,u_rotor)
+        phi = np.deg2rad(np.mean(les_data[count]['phi'], axis=0))
+        Cl = np.mean(les_data[count]['cl'], axis=0)
+        Cd = np.mean(les_data[count]['cd'], axis=0)
 
-        # Nondimensional radial positions
-        r = les_data[count]['rOverR']
-        r_mat =  (np.ones_like(wdir.T) * r).T
+        r =  (np.ones_like(Cd.T) * r).T
 
-        # Azimuthal coordinates
-        theta = np.linspace(0, 2*np.pi, les_data[count]['Nsct'])
+        chord = rotor.chord_func(les_data[count]['rOverR'])
+        sigma = rotor.solidity_func(les_data[count]['rOverR'])
 
-        # Freestream wind speed at hub height
-        U_hub = np.sqrt(u_func(z_hh)**2 + v_func(z_hh)**2)
+        sigma = np.array(sigma)
 
-        # Radial chord lengths
-        chord = rotor.chord_func(r)
-        chord =  (np.ones_like(wdir.T) * chord).T
-
-        # Radial twist
-        twist = rotor.twist_func(r)
-        
-        # Local solidity
-        sigma_r = 3 * chord / (2 * np.pi * r_mat * R)
-
-        # Local solidity
-        sigma = 3/Nsct
-
-        # Tip speed ratio
-        omega = np.mean(les_data[count]['omega'], axis=0) * 2 * np.pi / 60
-        tsr = np.mean(omega*R/(U_hub), axis=0) 
-
-        trbYaw = np.mean(les_data[count]['yaw'], axis=0) 
-
-        Vax, Vtn_NR, _ = postproc.rotGlobalToLocal(Nelm,Nsct,u_rotor,v_rotor,np.zeros_like(u_rotor))
-
-        Vtn = omega * r_mat * R - Vtn_NR
-
-#-------------------------------------------
-        # Vax = u_rotor
-        # Vtn = (
-        #     (1 + 0) * omega * r_mat * R
-        #     - v_rotor
-        #     * np.cos(t)
-        #     * np.sin(0)
-        # )
-#-------------------------------------------
-
-        # phi = np.arctan2(Vax, Vtn)
-        # aoa = phi - rotor.twist(r_mat)
-        # aoa = np.clip(aoa, -np.pi / 2, np.pi / 2)
+        sigma =  (np.ones_like(Cd.T) * sigma).T
+        chord =  (np.ones_like(Cd.T) * chord).T
 
         # Relative velocity
-        W = np.sqrt(Vax**2 + Vtn**2)
-
-        # Inflow angle
-        phi = np.atan2(Vax,Vtn)
-
-        aoa  = phi - twist[:, np.newaxis]
-        Cl, Cd = rotor.clcd(r_mat, aoa)
+        W = np.mean(les_data[count]['vrel'], axis=0) / U_inf
 
         # Axial coefficient
         Cax = Cl * np.cos(phi) + Cd * np.sin(phi)
 
         # Local CT
-        # ct = sigma_r * (W/U_hub)**2 * Cax
-        ct = sigma_r * (W/(np.sqrt(u_func(Y)**2 + v_func(Y)**2)).T)**2 * Cax
+        ct = sigma * W**2 * Cax
 
-        L = 1/2 * rho * chord * (Cl * W**2)
-        D = 1/2 * rho * chord * (Cd * W**2)
+        rho = 1.225
+
+        W_dim = np.mean(les_data[count]['vrel'], axis=0)
+
+        L = 1/2 * rho * chord * (Cl * W_dim**2)
+        D = 1/2 * rho * chord * (Cd * W_dim**2)
 
         FN = L * np.cos(phi) + D * np.sin(phi)
         FT = L * np.sin(phi) - D * np.cos(phi)
 
-        dr = (R - rotor.hub_radius)/Nelm
+        dr = (rotor.R - rotor.hub_radius)/Nelm
 
-        T = np.sum(FN * dr * sigma)
-        P = np.sum(FT * r_mat * R * dr * sigma * omega)
+        T = np.sum(FN * dr * (3/Nsct))
 
-        wrf_vax[:,:,count]      = Vax
-        wrf_vtn[:,:,count]      = Vtn
+        P = np.sum(FT * r * dr * (3/Nsct) * (np.mean(les_data[count]['omega'], axis=0) * 2 * np.pi / 60))
 
-        wrf_vax_real[:,:,count] = np.mean(les_data[count]['v1'], axis=0)
-        wrf_vtn_real[:,:,count] = np.mean(les_data[count]['v_tan'], axis=0)
-    
-        # wrf_vtn_NR[:,:,count]   = Vtn_NR
-        wrf_vtn_NR_real[:,:,count] = np.mean(les_data[count]['v_tan_no_rot'], axis=0)
+        wrf_ind_loc[:,:,count] = ind
+        wrf_cot_loc[:,:,count]  = ct
 
-        wrf_phi[:,:,count]      = phi
-        wrf_phi_real[:,:,count] = np.deg2rad(np.mean(les_data[count]['phi'], axis=0))
+        wrf_cot_ann[:,count] = postproc.annulus_average(np.linspace(0, 2*np.pi, Nsct), ct)
+        wrf_ind_ann[:,count] = postproc.annulus_average(np.linspace(0, 2*np.pi, Nsct), ind)
 
-        wrf_aoa[:,:,count]      = aoa
-        wrf_aoa_real[:,:,count] = np.deg2rad(np.mean(les_data[count]['aoa'], axis=0))
+        wrf_cot_rot[count]  = postproc.rotor_average(les_data[count]['rOverR'], wrf_cot_ann[:,count])
+        wrf_ind_rot[count] = postproc.rotor_average(les_data[count]['rOverR'], wrf_ind_ann[:,count])
 
-        wrf_W[:,:,count]        = W
-        wrf_W_real[:,:,count]   = np.mean(les_data[count]['vrel'], axis=0)
-
-        wrf_cax[:,:,count]      = Cax
-
-        # wrf_cot_rot[count]      = postproc.rotor_average(ct,r,theta)
-        # wrf_ind_rot[count]      = postproc.rotor_average(1 - u_rotor/ U_hub,r,theta)
-
-        wrf_cot_rot[count]      = postproc.rotor_average(ct,np.linspace(0,0.99999,26),theta)
-        wrf_ind_rot[count]      = postproc.rotor_average(1 - u_rotor/ u_func(Y),theta)
-
-        wrf_cot_ann[:,count]    = postproc.annulus_average(ct,theta)
-        wrf_ind_ann[:,count]    = postproc.annulus_average(1 - u_rotor/ U_hub,theta)
-
+        r = les_data[count]['rOverR']
         r_ann[:,count]          = r
         shears_ann[:,count]     = shears[count] * np.ones_like(r)
         veers_ann[:,count]      = veers[count] * np.ones_like(r)
-
-        wrf_cot_loc[:,:,count]  = ct
-        wrf_ind_loc[:,:,count]  = 1 - u_rotor/ U_hub
 
         wrf_CL[:,:,count]       = Cl
         wrf_CD[:,:,count]       = Cd
@@ -363,15 +274,10 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
         wrf_thr_real[count]     = np.mean(les_data[count]['thrust'], axis=0)[0]
         wrf_pow_real[count]     = np.mean(les_data[count]['power_aero'], axis=0)[0]
 
-        Uhub[count]             = U_hub
-        wrf_tsr[count]          = tsr
-        wrf_omg[count]          = omega[0]
-
+        Uhub[count]             = 7
+        wrf_omg[count]          = np.mean(les_data[count]['omega'], axis=0)
         wrf_U_inf[:,:,count]    = U_inf
         wrf_wdir_inf[:,:,count] = wdir_inf
-        
-        wrf_U[:,:,count]        = U
-        wrf_wdir[:,:,count]     = wdir
 
     if fields:
         pass

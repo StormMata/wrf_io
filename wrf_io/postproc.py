@@ -35,7 +35,7 @@ def madsen_ref() -> Tuple[np.ndarray, np.ndarray]:
             - a (np.ndarray): Induction factor values
             - ct (np.ndarray): Thrust coefficient values
     """
-    ct = np.linspace(0.0, 1.5, 100)
+    ct = np.linspace(0.0, 1.0, 100)
 
     k1 = 0.2460
     k2 = 0.0586
@@ -342,6 +342,11 @@ def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
     v0          = file2read.variables['WTP_V0_FST_AVE'  ][Ts:Te,:]
     rotspeed    = file2read.variables['WTP_OMEGA'       ][Ts:Te,:] * (30.0 / np.pi) # convert rad/s to rpm
 
+    shapiroM    = file2read.variables['WTP_SHAPIROM'    ][Ts:Te,:]
+
+    pitch       = file2read.variables['WTP_PITCH'       ][Ts:Te,:]
+    yaw         = file2read.variables['WTP_CAPITAL_PHI' ][Ts:Te,:]
+
     # Wind turbine blade-element variables
     f   = (file2read.variables['WTP_F'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
     fn  = (file2read.variables['WTP_FN'           ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
@@ -381,52 +386,56 @@ def fast_process(file: str, static_args: Dict[str, Any]) -> bool:
     var_holder['radius']       = diameter/2
     var_holder['hub_diameter'] = dhub
     var_holder['hub_radius']   = dhub/2
-    var_holder['hub_height']  = static_args['hub_height']
-    var_holder['rOverR']      = rOverR
-    var_holder['dx']          = dx
-    var_holder['dy']          = dy
-    var_holder['dz']          = static_args['dz']
+    var_holder['hub_height']   = static_args['hub_height']
+    var_holder['rOverR']       = rOverR
+    var_holder['dx']           = dx
+    var_holder['dy']           = dy
+    var_holder['dz']           = static_args['dz']
 
-    var_holder['dt']          = dt
-    var_holder['Nx']          = Nx
-    var_holder['Ny']          = Ny
-    var_holder['Nz']          = Nz
-    var_holder['tower_xloc']  = static_args['tower_xloc']
-    var_holder['tower_yloc']  = static_args['tower_yloc']
-    var_holder['Nsct']        = Nsct
-    var_holder['Nelm']        = Nelm
+    var_holder['dt']           = dt
+    var_holder['Nx']           = Nx
+    var_holder['Ny']           = Ny
+    var_holder['Nz']           = Nz
+    var_holder['tower_xloc']   = static_args['tower_xloc']
+    var_holder['tower_yloc']   = static_args['tower_yloc']
+    var_holder['Nsct']         = Nsct
+    var_holder['Nelm']         = Nelm
 
-    var_holder['uinf']        = static_args['uinf']
-    var_holder['omega']       = rotspeed
-    var_holder['thrust']      = thrust
-    var_holder['power_aero']  = power_aero
-    var_holder['power_mech']  = power_mech
-    var_holder['power_gen']   = power_gen
-    var_holder['torque_aero'] = torque_aero
-    var_holder['ct']          = ct
-    var_holder['cp']          = cp
-    var_holder['v0']          = v0
-    var_holder['f']           = f
-    var_holder['fn']          = fn
-    var_holder['ft']          = ft
-    var_holder['l']           = l
-    var_holder['d']           = d
-    var_holder['cl']          = cl
-    var_holder['cd']          = cd
-    var_holder['aoa']         = aoa
-    var_holder['v1']          = v1
-
-    var_holder['u']           = u
-    var_holder['v']           = v
-    var_holder['w']           = w
-    var_holder['v_tan']       = vtan
-
-    var_holder['vrel']        = vrel
-    var_holder['phi']         = phi
-
-    var_holder['bpx']         = bpx
-    var_holder['bpy']         = bpy
-    var_holder['bpz']         = bpz
+    var_holder['uinf']         = static_args['uinf']
+    var_holder['omega']        = rotspeed
+    var_holder['thrust']       = thrust
+    var_holder['power_aero']   = power_aero
+    var_holder['power_mech']   = power_mech
+    var_holder['power_gen']    = power_gen
+    var_holder['torque_aero']  = torque_aero
+    var_holder['ct']           = ct
+    var_holder['cp']           = cp
+    var_holder['v0']           = v0
+    var_holder['f']            = f
+    var_holder['fn']           = fn
+    var_holder['ft']           = ft
+    var_holder['l']            = l
+    var_holder['d']            = d
+    var_holder['cl']           = cl
+    var_holder['cd']           = cd
+    var_holder['aoa']          = aoa
+    var_holder['v1']           = v1
+ 
+    var_holder['u']            = u
+    var_holder['v']            = v
+    var_holder['w']            = w
+    var_holder['v_tan']        = vtan
+ 
+    var_holder['vrel']         = vrel
+    var_holder['phi']          = phi
+ 
+    var_holder['pitch']        = pitch
+    var_holder['yaw']          = yaw
+ 
+    var_holder['bpx']          = bpx
+    var_holder['bpy']          = bpy
+    var_holder['bpz']          = bpz
+    var_holder['shapiroM']     = shapiroM
 
     np.savez( os.path.join(f'{dir_path}/{case}_lite.npz'),**var_holder)
     
@@ -497,6 +506,11 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     rotorApex_x = file2read.variables['WTP_ROTORAPEX_X' ][Ts:Te,:]
     rotorApex_y = file2read.variables['WTP_ROTORAPEX_Y' ][Ts:Te,:]
     rotorApex_z = file2read.variables['WTP_ROTORAPEX_Z' ][Ts:Te,:]
+
+    shapiroM    = file2read.variables['WTP_SHAPIROM'    ][Ts:Te,:]
+
+    pitch       = file2read.variables['WTP_PITCH'       ][Ts:Te,:]
+    yaw         = file2read.variables['WTP_CAPITAL_PHI' ][Ts:Te,:]
 
     # # Wind turbine blade-element variables
     f   = (file2read.variables['WTP_F'            ][Ts:Te,:]).reshape(Nt,Nelm,Nsct)
@@ -623,53 +637,57 @@ def full_process(file: str, static_args: Dict[str, Any]) -> bool:
     var_holder['diameter']     = diameter
     var_holder['radius']       = diameter/2
     var_holder['hub_diameter'] = dhub
-    var_holder['hub_height']  = static_args['hub_height']
-    var_holder['rOverR']      = rOverR
-    var_holder['dx']          = dx
-    var_holder['dy']          = dy
-    var_holder['dt']          = dt
-    var_holder['Nx']          = Nx
-    var_holder['Ny']          = Ny
-    var_holder['Nz']          = Nz
-    var_holder['tower_xloc']  = static_args['tower_xloc']
-    var_holder['tower_yloc']  = static_args['tower_yloc']
-    var_holder['Nsct']        = Nsct
-    var_holder['Nelm']        = Nelm
-
-    var_holder['uinf']        = static_args['uinf']
-    var_holder['omega']       = rotspeed
-    var_holder['thrust']      = thrust
-    var_holder['power_aero']  = power_aero
-    var_holder['power_mech']  = power_mech
-    var_holder['power_gen']   = power_gen
-    var_holder['torque_aero'] = torque_aero
-    var_holder['ct']          = ct
-    var_holder['cp']          = cp
-    var_holder['v0']          = v0
-    var_holder['f']           = f
-    var_holder['fn']          = fn
-    var_holder['ft']          = ft
-    var_holder['l']           = l
-    var_holder['d']           = d
-    var_holder['cl']          = cl
-    var_holder['cd']          = cd
-    var_holder['aoa']         = aoa
-    var_holder['v1']          = v1
-
-    var_holder['u']           = u_WTP
-    var_holder['v']           = v_WTP
-    var_holder['w']           = w_WTP
-
-    var_holder['vrel']        = vrel
-    var_holder['phi']         = phi
-
-    var_holder['bpx']         = bpx
-    var_holder['bpy']         = bpy
-    var_holder['bpz']         = bpz
-
-    var_holder['trb_x']       = rotor_xloc
-    var_holder['trb_y']       = rotor_yloc
-    var_holder['trb_z']       = rotor_zloc
+    var_holder['hub_height']   = static_args['hub_height']
+    var_holder['rOverR']       = rOverR
+    var_holder['dx']           = dx
+    var_holder['dy']           = dy
+    var_holder['dt']           = dt
+    var_holder['Nx']           = Nx
+    var_holder['Ny']           = Ny
+    var_holder['Nz']           = Nz
+    var_holder['tower_xloc']   = static_args['tower_xloc']
+    var_holder['tower_yloc']   = static_args['tower_yloc']
+    var_holder['Nsct']         = Nsct
+    var_holder['Nelm']         = Nelm
+ 
+    var_holder['uinf']         = static_args['uinf']
+    var_holder['omega']        = rotspeed
+    var_holder['thrust']       = thrust
+    var_holder['power_aero']   = power_aero
+    var_holder['power_mech']   = power_mech
+    var_holder['power_gen']    = power_gen
+    var_holder['torque_aero']  = torque_aero
+    var_holder['ct']           = ct
+    var_holder['cp']           = cp
+    var_holder['v0']           = v0
+    var_holder['f']            = f
+    var_holder['fn']           = fn
+    var_holder['ft']           = ft
+    var_holder['l']            = l
+    var_holder['d']            = d
+    var_holder['cl']           = cl
+    var_holder['cd']           = cd
+    var_holder['aoa']          = aoa
+    var_holder['v1']           = v1
+ 
+    var_holder['u']            = u_WTP
+    var_holder['v']            = v_WTP
+    var_holder['w']            = w_WTP
+ 
+    var_holder['vrel']         = vrel
+    var_holder['phi']          = phi
+ 
+    var_holder['pitch']        = pitch
+    var_holder['yaw']          = yaw
+ 
+    var_holder['bpx']          = bpx
+    var_holder['bpy']          = bpy
+    var_holder['bpz']          = bpz
+    var_holder['shapiroM']     = shapiroM
+ 
+    var_holder['trb_x']        = rotor_xloc
+    var_holder['trb_y']        = rotor_yloc
+    var_holder['trb_z']        = rotor_zloc
 
     np.savez( os.path.join(f'{dir_path}/{case}_full.npz'),**var_holder)
     
@@ -754,7 +772,7 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
 
     console.print(f"Finished in [bold][green3]{minutes}[/green3][/bold] min and [bold][green3]{seconds}[/green3][/bold] sec.")
 
-def annulus_average(f: ArrayLike, theta: ArrayLike) -> ArrayLike:
+def annulus_average(theta: ArrayLike, f: ArrayLike) -> ArrayLike:
     """
     Compute annulus average of spatial quantity f(r,theta) over rotor
 
@@ -766,9 +784,9 @@ def annulus_average(f: ArrayLike, theta: ArrayLike) -> ArrayLike:
         ArrayLike: array of annulus averages
     """
 
-    dtheta  = np.gradient(theta)
+    dtheta = np.gradient(theta)
     weights = dtheta / np.sum(dtheta)
-    X_azim  = np.sum(f * weights, axis=1)
+    X_azim = np.sum(f * weights, axis=1)
 
     return X_azim
 
@@ -794,7 +812,7 @@ def annulus_avg_to_rotor_avg(f: ArrayLike, r: ArrayLike) -> ArrayLike:
 
     return X_rotor
 
-def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> float:
+def rotor_average(r: ArrayLike, f: ArrayLike) -> float:
     """
     Compute rotor average of spatial quantity f(r,theta) over rotor
 
@@ -807,15 +825,17 @@ def rotor_average(f: ArrayLike, r: ArrayLike, theta: ArrayLike) -> float:
         float: rotor-averaged quantity
     """
 
-    dr     = np.gradient(r)
-    dtheta = np.gradient(theta)
+    # Takes annulus average quantities and performs rotor average
 
-    area_elements = np.outer(dr * r, dtheta)
-    integrand     = f * area_elements
+    dr = np.gradient(r)
+    area_elements = 2 * np.pi * r * dr  # differential area for annular rings
+    integrand = f * area_elements
 
-    A = np.pi * (1 - r[0]**2)
+    # A = np.pi * (r[-1]**2 - r[0]**2)  # total area of annulus from R1 to R2
 
-    X_rotor = np.sum(integrand) / A
+    A = np.pi * (1**2 - (2.4/99.5)**2)  # total area of annulus from R1 to R2
+
+    X_rotor =  np.sum(integrand) / A
 
     return X_rotor
 
