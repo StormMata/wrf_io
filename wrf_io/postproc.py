@@ -87,7 +87,8 @@ def load_wrfout(top_dir: str) -> List[Dict[str, Any]]:
 
 def get_dirs(top_dir: str):
     # Look one level deeper for s*_v* entries
-    path_template = os.path.join(top_dir, '*', 's*_v*')
+    # path_template = os.path.join(top_dir, '*', 's*_v*')
+    path_template = os.path.join(top_dir, 's*_v*')
     all_matches = glob.glob(path_template)
 
     # Filter only directories
@@ -708,14 +709,16 @@ def parproc(processes: int, params: Dict[str, Any], procType: str) -> None:
         opt_params (Dict): A dictionary of settings including sample locations if desired
         procType (str): Tell the function to do a fast process or full process
     """
-    full_base_path = params['base_dir'] + params['rotor_model'].lower() + f'_sweep'
+    full_base_path = params['base_dir'] + '/' + params['rotor_model'].lower() + f'_sweep'
 
     # filelist = glob.glob(params['base_dir'] + '/**/wrfout_d02_0001-01-01_00_00_00', recursive=True)
-    filelist, _ = get_dirs(full_base_path)
+    dir_list, _ = get_dirs(full_base_path)
 
-    sample_namelist = filelist[0] + '/namelist.input'
-    sample_turbdb = os.path.join(filelist[0], 'windTurbines', params['turb_model'], 'turbineProperties.tbl')
-    sample_turbloc = filelist[0] + '/windturbines-ij.dat'
+    filelist = [os.path.join(d, 'wrfout_d02_0001-01-01_00_00_00') for d in dir_list]
+
+    sample_namelist = dir_list[0] + '/namelist.input'
+    sample_turbdb = os.path.join(dir_list[0], 'windTurbines', params['turb_model'], 'turbineProperties.tbl')
+    sample_turbloc = dir_list[0] + '/windturbines-ij.dat'
 
     console = Console()
 
