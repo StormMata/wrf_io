@@ -35,7 +35,7 @@ def madsen_ref() -> Tuple[np.ndarray, np.ndarray]:
             - a (np.ndarray): Induction factor values
             - ct (np.ndarray): Thrust coefficient values
     """
-    ct = np.linspace(0.0, 1.0, 100)
+    ct = np.linspace(0.0, 2.1, 200)
 
     k1 = 0.2460
     k2 = 0.0586
@@ -818,7 +818,7 @@ def annulus_avg_to_rotor_avg(f: ArrayLike, r: ArrayLike) -> ArrayLike:
 
     return X_rotor
 
-def rotor_average(r: ArrayLike, f: ArrayLike) -> float:
+def rotor_average(r: ArrayLike, f: ArrayLike, R_hub: float, R: float) -> float:
     """
     Compute rotor average of spatial quantity f(r,theta) over rotor
 
@@ -837,9 +837,7 @@ def rotor_average(r: ArrayLike, f: ArrayLike) -> float:
     area_elements = 2 * np.pi * r * dr  # differential area for annular rings
     integrand = f * area_elements
 
-    # A = np.pi * (r[-1]**2 - r[0]**2)  # total area of annulus from R1 to R2
-
-    A = np.pi * (1**2 - (2.4/99.5)**2)  # total area of annulus from R1 to R2
+    A = np.pi * (1**2 - (R_hub/R)**2)  # total area of annulus from R1 to R2
 
     X_rotor =  np.sum(integrand) / A
 
@@ -898,11 +896,11 @@ def extract_sounding(params: Dict[str, Any], local: bool, path: Optional[str] = 
     """
 
     if local:
-        files, _ = get_dirs(path)
+        path_template = os.path.join(path, '*','*', 'input_sounding')
     else:
-        files, _ = get_dirs(params['base_dir'])
+        path_template = os.path.join(params['base_dir'], '*','*', 'input_sounding')
 
-    file_list = [path + '/input_sounding' for path in files]
+    file_list = glob.glob(path_template)
 
     data_dict = {}
     
@@ -981,7 +979,7 @@ def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, pa
 
     wrfles_bem = []
     for i in range(len(casenames)):
-        wrfles_bem.append(dict(np.load(os.path.join(base, model_str, casenames[i]+'_lite.npz'))))
+        wrfles_bem.append(dict(np.load(os.path.join(base, model_str, casenames[i], casenames[i]+'_lite.npz'))))
 
     return wrfles_bem
 
