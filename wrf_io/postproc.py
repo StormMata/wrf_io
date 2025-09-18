@@ -130,7 +130,7 @@ def rmsd_window(data: ArrayLike, window: int, interval: int) -> ArrayLike:
     return data.rolling(window=window_size, min_periods=1).apply(rmsd, raw=True)
 
 
-def convergence(params: Dict[str, Any], D: Optional[float] = None, print: Optional[bool] = False) -> None:
+def convergence(params: Dict[str, Any], D: Optional[float] = None, print_plots: Optional[bool] = False) -> None:
     """
     Generate timeseries plots of power, thrust, CP, and CT for a series of runs
 
@@ -280,7 +280,7 @@ def convergence(params: Dict[str, Any], D: Optional[float] = None, print: Option
 
         plt.savefig(f"{save_dir}/{case}.png", bbox_inches="tight", dpi=600)
     
-        if not print:
+        if not print_plots:
             plt.close()
 
     print('\nDone.')
