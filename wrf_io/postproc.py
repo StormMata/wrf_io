@@ -15,7 +15,7 @@ import matplotlib.ticker as mticker
 
 from wrf_io import sweep
 from pathlib import Path
-from wrf_io import preproc
+from wrf_io import preproc, gpr
 from scipy.io import loadmat
 from multiprocessing import Pool
 from rich.console import Console
@@ -987,7 +987,7 @@ def load_data(params: Dict[str, Any], casenames: Dict[str, Any], local: bool, pa
 
 def build_kernel_from_search(params, noise: bool):
 
-    file_path = params['base_path'] + params['kernel_file']
+    file_path = params['gp_base_path'] + params['kernel_file']
     # Extract kernel line
     kernel_line = extract_kernel_line(file_path)
     print("Kernel line:")
@@ -1216,8 +1216,8 @@ def set_active_dims(kernel: Kernel, active_dims: List[int]) -> Kernel:
 
 def extract_data(params, transform: bool):
 
-    train_path = params['base_path'] + params['train_data']
-    test_path  = params['base_path'] + params['test_data']
+    train_path = params['gp_base_path'] + params['train_data']
+    test_path  = params['gp_base_path'] + params['test_data']
 
     X_train_mat = loadmat(train_path)
     X_test_mat  = loadmat(test_path)
@@ -1232,35 +1232,37 @@ def extract_data(params, transform: bool):
 
 def load_scalars(params):
 
-    with open(params['base_path'] + params['cot_scalar'], 'rb') as f:
+    with open(params['gp_base_path'] + params['cot_scalar'], 'rb') as f:
         scalar_cot = pickle.load(f)
 
-    with open(params['base_path'] + params['shear_scalar'], 'rb') as f:
+    with open(params['gp_base_path'] + params['shear_scalar'], 'rb') as f:
         scalar_shear = pickle.load(f)
 
-    with open(params['base_path'] + params['veer_scalar'], 'rb') as f:
+    with open(params['gp_base_path'] + params['veer_scalar'], 'rb') as f:
         scalar_veer = pickle.load(f)
 
-    with open(params['base_path'] + params['ind_scalar'], 'rb') as f:
+    with open(params['gp_base_path'] + params['ind_scalar'], 'rb') as f:
         scalar_ind = pickle.load(f)
 
-    with open(params['base_path'] + params['enc_scalar'], 'rb') as f:
+    with open(params['gp_base_path'] + params['enc_scalar'], 'rb') as f:
         scalar_enc = pickle.load(f)
 
     return scalar_cot, scalar_ind, scalar_shear, scalar_veer, scalar_enc
 
-def gpr_predict(params, gpr, set: str, std: bool):
+def gpr_rot_predict(params, gpr_kernel, set: str, std: bool):
 
-    if set == 'test':
-        X_train, y_train, X_test, _ = extract_data(params, transform = False)
+    X_train, y_train, X_test, _ = extract_data(params, transform = False)
 
-    gpr.fit(X_train, y_train)
+    gpr_kernel.fit(X_train, y_train)
 
-    A_pred, sigma = gpr.predict(X_test, return_std=True)
+    if set == 'train':
+        A_pred, sigma = gpr_kernel.predict(X_train, return_std=True)
+    elif set == 'test':
+        A_pred, sigma = gpr_kernel.predict(X_test, return_std=True)
 
-    _, ind_scalar, _, _, _ = load_scalars(params)
+    scalars = gpr.load_scalars(params)
 
-    a_pred = ind_scalar.inverse_transform(A_pred.reshape(-1, 1))
+    a_pred = scalars['scaler_ind_rotor'].inverse_transform(A_pred.reshape(-1, 1))
 
     if std:
         return a_pred, sigma

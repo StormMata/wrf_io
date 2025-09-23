@@ -16,6 +16,7 @@ import matplotlib.ticker as mticker
 from wrf_io import sweep
 from pathlib import Path
 from wrf_io import postproc
+from scipy.io import savemat
 from scipy.io import loadmat
 from itertools import product
 from multiprocessing import Pool
@@ -24,7 +25,7 @@ from numpy.typing import ArrayLike
 from scipy.interpolate import interp1d
 from matplotlib.gridspec import GridSpec
 from MITRotor import IEA10MW, IEA15MW, IEA22MW
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, Union
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
 def print_stats(variables: Dict) -> None:
@@ -425,5 +426,157 @@ def scale_and_encode(input_dict, training: bool, scalars: Optional[Dict] = None)
     return scaled_dict, scalers_dict if training else None
 
 
-# def save_dataset():
-    
+def load_scalars(opt_params: Dict) -> Dict[str, object]:
+    """
+    Load scalers/encoders for inference, combining gp_base_path with per-item paths.
+
+    Required:
+      opt_params['gp_base_path'] = base directory
+      And for each of these keys, a path RELATIVE to base (strings may accidentally be single-item tuples):
+        'scaler_cot_annulus', 'scaler_ind_annulus',
+        'scaler_cot_rotor', 'scaler_ind_rotor',
+        'scaler_shears_rotor', 'scaler_veers_rotor',
+        'scaler_shears_annulus', 'scaler_veers_annulus',
+        'encoder_rotor', 'encoder_annulus'
+      Optionally:
+        'scaler_cot_local', 'scaler_ind_local' (if omitted, identity scalers will be created)
+
+    Returns:
+      Dict[str, object] for use as `scalars` in scale_and_encode(..., training=False, scalars=...)
+    """
+    if 'gp_base_path' not in opt_params:
+        raise ValueError("Missing required opt_params['gp_base_path']")
+
+    base = os.path.expanduser(os.path.expandvars(opt_params['gp_base_path']))
+
+    # Required items saved during training (except local, which we can identity-pass if absent)
+    required_keys = [
+        'scaler_cot_annulus', 'scaler_ind_annulus',
+        'scaler_cot_rotor', 'scaler_ind_rotor',
+        'scaler_shears_rotor', 'scaler_veers_rotor',
+        'scaler_shears_annulus', 'scaler_veers_annulus',
+        'encoder_rotor', 'encoder_annulus',
+    ]
+    optional_local_keys = ['scaler_cot_local', 'scaler_ind_local']
+
+    def _unwrap_path(p: Union[str, list, tuple], key: str) -> str:
+        # Handle accidental trailing commas making single-item tuples
+        if isinstance(p, (list, tuple)):
+            if len(p) == 1 and isinstance(p[0], str):
+                return p[0]
+            raise ValueError(f"Expected a single path string for {key}, got {p}")
+        if not isinstance(p, str):
+            raise ValueError(f"Expected a string path for {key}, got {type(p)}")
+        return p
+
+    def _resolve(base_dir: str, rel_path: str) -> str:
+        # Treat provided path as relative to base even if it starts with '/'
+        rel_path = os.path.expanduser(os.path.expandvars(rel_path))
+        rel_path = rel_path.lstrip(os.sep)
+        return os.path.normpath(os.path.join(base_dir, rel_path))
+
+    scalars: Dict[str, Any] = {}
+    missing_files = []
+
+    # Load required non-local items
+    for key in required_keys:
+        if key not in opt_params:
+            continue
+        rel = _unwrap_path(opt_params[key], key)
+        fpath = _resolve(base, rel)
+        if not os.path.isfile(fpath):
+            missing_files.append((key, fpath))
+            continue
+        with open(fpath, "rb") as f:
+            scalars[key] = pickle.load(f)
+
+    # If only rotor encoder provided, reuse for annulus
+    if 'encoder_annulus' not in scalars and 'encoder_rotor' in scalars:
+        scalars['encoder_annulus'] = scalars['encoder_rotor']
+
+    # Local scalers: load if provided; otherwise create identity scalers
+    def _identity_scaler():
+        s = StandardScaler()
+        s.fit(np.zeros((1, 1), dtype=float))  # n_features_in_ = 1
+        return s
+
+    for key in optional_local_keys:
+        if key in opt_params:
+            rel = _unwrap_path(opt_params[key], key)
+            fpath = _resolve(base, rel)
+            if not os.path.isfile(fpath):
+                raise FileNotFoundError(f"Missing file for {key}: {fpath}")
+            with open(fpath, "rb") as f:
+                scalars[key] = pickle.load(f)
+        else:
+            scalars.setdefault(key, _identity_scaler())
+
+    # Final validation: everything scale_and_encode needs when training=False
+    must_have = [
+        'scaler_cot_local', 'scaler_ind_local',
+        'scaler_cot_annulus', 'scaler_ind_annulus',
+        'scaler_cot_rotor', 'scaler_ind_rotor',
+        'scaler_shears_rotor', 'scaler_veers_rotor',
+        'scaler_shears_annulus', 'scaler_veers_annulus',
+        'encoder_rotor', 'encoder_annulus',
+    ]
+    missing = [k for k in must_have if k not in scalars]
+    if missing:
+        msg = "Missing required scalers/encoders: " + ", ".join(missing)
+        if missing_files:
+            msg += ". Some expected files were not found: " + ", ".join(f"{k}:{p}" for k, p in missing_files)
+        raise FileNotFoundError(msg)
+
+    return scalars
+
+
+def save_dataset(params: Dict[str, Any], data):
+    # Generate MATLAB tables of standardized inputs
+
+    X_rot = np.column_stack([data['cot_rotor'], data['shears_rotor'], data['veers_rotor']])
+    X_ann = np.column_stack([data['r_annulus'].flatten(), data['cot_annulus'].flatten(), data['shears_annulus'].flatten(), data['veers_annulus'].flatten()])
+
+    y_rot = data['ind_rotor']
+    y_ann = data['ind_annulus'].flatten()
+
+    savemat(params['gp_dir']+ 'wrf_10MW_ann.mat', {'X': X_ann, 'y': y_ann.reshape(-1, 1)})
+    savemat(params['gp_dir']+ 'wrf_10MW_rot.mat', {'X': X_rot, 'y': y_rot.reshape(-1, 1)})
+
+    X_rot = np.hstack([X_rot, data['shear_regime_rotor']])
+    X_ann = np.hstack([X_ann, data['shear_regime_annulus']])
+
+    savemat(params['gp_dir']+ 'wrf_10MW_ann_OH.mat', {'X': X_ann, 'y': y_ann.reshape(-1, 1)})
+    savemat(params['gp_dir']+ 'wrf_10MW_rot_OH.mat', {'X': X_rot, 'y': y_rot.reshape(-1, 1)})
+
+def save_scalars(params: Dict[str, Any], scalars):
+    with open(os.path.join(params['gp_dir'], 'scaler_wrf_cot_ann.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_cot_annulus'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_wrf_ind_ann.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_ind_annulus'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_wrf_cot_rot.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_cot_rotor'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_wrf_ind_rot.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_ind_rotor'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_shears_rot.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_shears_rotor'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_veers_rot.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_veers_rotor'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_shears_ann.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_shears_annulus'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_veers_ann.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_veers_annulus'], f)
+
+    with open(os.path.join(params['gp_dir'], 'encoder_rot.pkl'), 'wb') as f:
+        pickle.dump(scalars['encoder_rotor'], f)
+
+    with open(os.path.join(params['gp_dir'], 'encoder_ann.pkl'), 'wb') as f:
+        pickle.dump(scalars['encoder_annulus'], f)
+
+    print(f'Scalars saved to {params["gp_dir"]}')
