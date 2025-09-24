@@ -77,7 +77,7 @@ def merge_data_dicts(d1, d2):
 
 
 # def generate_train_data(casenames, params_path, fields=False, local=False):
-def generate_train_data(params: Dict[str, Any], D = float, fields=False, local=False):
+def generate_train_data(params: Dict[str, Any], D = float, field_data=False, rotor_data=False, local=False):
 
     # params, inflow_data, wrfles = load_data(casenames, params_path, fields, local)
     # data = compute_les_data(casenames, params, inflow_data, wrfles, fields)
@@ -91,14 +91,14 @@ def generate_train_data(params: Dict[str, Any], D = float, fields=False, local=F
 
     params_path = os.path.join(params['base_dir'],model_str,'opt_params.pkl')
 
-    params, inflow_data, wrfles = load_data(casenames, params_path, fields, local)
+    params, inflow_data, wrfles = load_data(casenames, params_path, local)
 
-    data = compute_les_data(casenames, params, inflow_data, wrfles, fields)
+    data = compute_les_data(casenames, params, inflow_data, wrfles, field_data, rotor_data)
 
     return data
 
 
-def load_data(casenames, params_path, fields, local):
+def load_data(casenames, params_path, local):
 
     params      = postproc.load_params(params_path)
     inflow_data = postproc.extract_sounding(params=params, local=local)
@@ -107,7 +107,7 @@ def load_data(casenames, params_path, fields, local):
     return params, inflow_data, wrfles
 
 
-def compute_les_data(casenames, params, inflow_data, les_data, fields):
+def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor_data):
 
     exclude = params['excluded_pairs']
     cases = [
@@ -136,48 +136,51 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
     X = R * np.sin(T)
     Y = (R * np.cos(T)) * les_data[0]['radius'] + z_hh
 
-    wrf_U_inf    = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_wdir_inf = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_CL       = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_CD       = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_CL_real  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_CD_real  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_L        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_D        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_L_real   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_D_real   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_FN       = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_FT       = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_FN_real  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_FT_real  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-
-    wrf_pow      = np.zeros(len(casenames),dtype='longdouble')
-    wrf_thr      = np.zeros(len(casenames),dtype='longdouble')
-
-    wrf_pow_real = np.zeros(len(casenames),dtype='longdouble')
-    wrf_thr_real = np.zeros(len(casenames),dtype='longdouble')
-
-    Uhub         = np.zeros(len(casenames), dtype=float)
-    wrf_omg      = np.zeros(len(casenames), dtype=float)
-
-    wrf_cot_rot  = np.zeros(len(casenames), dtype=float)
-    wrf_ind_rot  = np.zeros(len(casenames), dtype=float)
-
-    r_ann        = np.zeros((Nelm, len(casenames)),dtype='longdouble')
-    shears_ann   = np.zeros((Nelm, len(casenames)),dtype='longdouble')
-    veers_ann    = np.zeros((Nelm, len(casenames)),dtype='longdouble')
-
-    wrf_cot_ann  = np.zeros((Nelm, len(casenames)),dtype='longdouble')
-    wrf_ind_ann  = np.zeros((Nelm, len(casenames)),dtype='longdouble')
-
-    wrf_cot_loc  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
-    wrf_ind_loc  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_U_inf     = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_wdir_inf  = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_U_disk    = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_wdir_disk = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_CL        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_CD        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_CL_real   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_CD_real   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_L         = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_D         = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_L_real    = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_D_real    = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_FN        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_FT        = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_FN_real   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_FT_real   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+ 
+    wrf_pow       = np.zeros(len(casenames),dtype='longdouble')
+    wrf_thr       = np.zeros(len(casenames),dtype='longdouble')
+ 
+    wrf_pow_real  = np.zeros(len(casenames),dtype='longdouble')
+    wrf_thr_real  = np.zeros(len(casenames),dtype='longdouble')
+ 
+    Uhub          = np.zeros(len(casenames), dtype=float)
+    wrf_omg       = np.zeros(len(casenames), dtype=float)
+ 
+    wrf_cot_rot   = np.zeros(len(casenames), dtype=float)
+    wrf_ind_rot   = np.zeros(len(casenames), dtype=float)
+ 
+    r_ann         = np.zeros((Nelm, len(casenames)),dtype='longdouble')
+    shears_ann    = np.zeros((Nelm, len(casenames)),dtype='longdouble')
+    veers_ann     = np.zeros((Nelm, len(casenames)),dtype='longdouble')
+ 
+    wrf_cot_ann   = np.zeros((Nelm, len(casenames)),dtype='longdouble')
+    wrf_ind_ann   = np.zeros((Nelm, len(casenames)),dtype='longdouble')
+ 
+    wrf_cot_loc   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
+    wrf_ind_loc   = np.zeros((Nelm, Nsct, len(casenames)),dtype='longdouble')
 
     if params['turb_model'] == 'iea10MW':
         rotor = IEA10MW()
@@ -234,6 +237,9 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
         u_rot_avg = ((((1-ind_rotor) * u_inf)**2 + v_inf**2)**(1/2) * np.cos(np.atan2(v_inf, u_inf))).T
         v_rot_avg = ((((1-ind_rotor) * u_inf)**2 + v_inf**2)**(1/2) * np.sin(np.atan2(v_inf, u_inf))).T
 
+        U_disk    = np.sqrt(u_rot_avg**2 + v_rot_avg**2)
+        wdir_disk = 
+
         r_mat  = (np.ones_like(u_inf) * r).T
         mu_mat = (np.ones_like(u_inf) * mu).T
 
@@ -284,50 +290,71 @@ def compute_les_data(casenames, params, inflow_data, les_data, fields):
         T = np.sum(FN * dr * sigma_les)
         P = np.sum(FT * r_mat * dr * sigma_les * omega)
 
-        wrf_ind_loc[:,:,count]  = ind
-        wrf_cot_loc[:,:,count]  = ct
+        wrf_ind_loc[:,:,count]   = ind
+        wrf_cot_loc[:,:,count]   = ct
+ 
+        wrf_cot_ann[:,count]     = postproc.annulus_average(theta, ct)
+        wrf_ind_ann[:,count]     = ind_annulus
+ 
+        wrf_cot_rot[count]       = postproc.rotor_average(mu, wrf_cot_ann[:,count], R_hub, R)
+        wrf_ind_rot[count]       = ind_rotor
+ 
+        r_ann[:,count]           = r
+        shears_ann[:,count]      = shears[count] * np.ones_like(r)
+        veers_ann[:,count]       = veers[count] * np.ones_like(r)
+ 
+        wrf_CL[:,:,count]        = Cl
+        wrf_CD[:,:,count]        = Cd
+ 
+        wrf_CL_real[:,:,count]   = np.mean(les_data[count]['cl'], axis=0)
+        wrf_CD_real[:,:,count]   = np.mean(les_data[count]['cd'], axis=0)
+ 
+        wrf_L[:,:,count]         = L
+        wrf_D[:,:,count]         = D
+ 
+        wrf_L_real[:,:,count]    = np.mean(les_data[count]['l'], axis=0)
+        wrf_D_real[:,:,count]    = np.mean(les_data[count]['d'], axis=0)
+ 
+        wrf_FN[:,:,count]        = FN
+        wrf_FT[:,:,count]        = FT
+ 
+        wrf_FN_real[:,:,count]   = np.mean(les_data[count]['fn'], axis=0)
+        wrf_FT_real[:,:,count]   = np.mean(les_data[count]['ft'], axis=0)
+ 
+        wrf_thr[count]           = T
+        wrf_pow[count]           = P
+ 
+        wrf_thr_real[count]      = np.mean(les_data[count]['thrust'], axis=0)[0]
+        wrf_pow_real[count]      = np.mean(les_data[count]['power_aero'], axis=0)[0]
+ 
+        Uhub[count]              = U_hub
+        wrf_omg[count]           = np.mean(les_data[count]['omega'], axis=0)
+        wrf_U_inf[:,:,count]     = U_inf
+        wrf_wdir_inf[:,:,count]  = wdir_inf
 
-        wrf_cot_ann[:,count]    = postproc.annulus_average(theta, ct)
-        wrf_ind_ann[:,count]    = ind_annulus
+        wrf_U_disk[:,:,count]    = U_disk
+        wrf_wdir_disk[:,:,count] = wdir_disk
 
-        wrf_cot_rot[count]      = postproc.rotor_average(mu, wrf_cot_ann[:,count], R_hub, R)
-        wrf_ind_rot[count]      = ind_rotor
+    if field_data:
+        np.save(params['field_data_path'] + 'sweep_names.npy', casenames)
+        np.save(params['field_data_path'] + 'U_inf.npy', wrf_U_inf)
+        np.save(params['field_data_path'] + 'dir_inf.npy', wrf_wdir_inf)
+        np.save(params['field_data_path'] + 'U_disk.npy', wrf_U_disk)
+        np.save(params['field_data_path'] + 'dir_disk.npy', wrf_wdir_disk)
+        np.save(params['field_data_path'] + 'Uhub.npy', Uhub)
+        np.save(params['field_data_path'] + 'wrf_omg.npy', wrf_omg)
 
-        r_ann[:,count]          = r
-        shears_ann[:,count]     = shears[count] * np.ones_like(r)
-        veers_ann[:,count]      = veers[count] * np.ones_like(r)
+        print(f'Field data saved at {params['field_data_path']}')
 
-        wrf_CL[:,:,count]       = Cl
-        wrf_CD[:,:,count]       = Cd
-
-        wrf_CL_real[:,:,count]  = np.mean(les_data[count]['cl'], axis=0)
-        wrf_CD_real[:,:,count]  = np.mean(les_data[count]['cd'], axis=0)
-
-        wrf_L[:,:,count]        = L
-        wrf_D[:,:,count]        = D
-
-        wrf_L_real[:,:,count]   = np.mean(les_data[count]['l'], axis=0)
-        wrf_D_real[:,:,count]   = np.mean(les_data[count]['d'], axis=0)
-
-        wrf_FN[:,:,count]       = FN
-        wrf_FT[:,:,count]       = FT
-
-        wrf_FN_real[:,:,count]  = np.mean(les_data[count]['fn'], axis=0)
-        wrf_FT_real[:,:,count]  = np.mean(les_data[count]['ft'], axis=0)
-
-        wrf_thr[count]          = T
-        wrf_pow[count]          = P
-
-        wrf_thr_real[count]     = np.mean(les_data[count]['thrust'], axis=0)[0]
-        wrf_pow_real[count]     = np.mean(les_data[count]['power_aero'], axis=0)[0]
-
-        Uhub[count]             = U_hub
-        wrf_omg[count]          = np.mean(les_data[count]['omega'], axis=0)
-        wrf_U_inf[:,:,count]    = U_inf
-        wrf_wdir_inf[:,:,count] = wdir_inf
-
-    if fields:
-        pass
+    if rotor_data:
+        return {
+            'lift'          : wrf_L,
+            'drag'          : wrf_D,
+            'normal'        : wrf_FN,
+            'tangential'    : wrf_FT,
+            'thrust'        : wrf_thr,
+            'power'         : wrf_pow,
+        }
     else:
         return {
             'r_annulus'     : r_ann,
