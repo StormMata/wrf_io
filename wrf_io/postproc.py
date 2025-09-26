@@ -1026,11 +1026,16 @@ def build_kernel_from_search(params, noise: bool):
     save_path = save_directory / obj_filename
 
     joblib.dump(my_kernel_obj, save_path)
-    print(f"\nKernel saved at: {save_path}")
+    print(f"\nKernel object saved at: {save_path}")
 
-    gpr = GaussianProcessRegressor(kernel=my_kernel_obj, optimizer=None, normalize_y=False)
+    gpregressor = GaussianProcessRegressor(kernel=my_kernel_obj, optimizer=None, normalize_y=False)
 
-    return my_kernel_obj, gpr
+    gpr_save_path = os.path.join(save_directory, 'rotor_sklearn_gpr.pkl')
+
+    # joblib.dump(gpregressor, gpr_save_path)
+    # print(f"\nSklearn regressor saved at: {gpr_save_path}")
+
+    return my_kernel_obj, gpregressor
 
 def extract_kernel_line(file_path: str) -> str:
     with open(file_path, 'r') as file:

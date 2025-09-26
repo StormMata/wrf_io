@@ -167,6 +167,7 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
     wrf_thr_real  = np.zeros(len(casenames),dtype='longdouble')
  
     Uhub          = np.zeros(len(casenames), dtype=float)
+    wrf_pitch     = np.zeros(len(casenames), dtype=float)
     wrf_omg       = np.zeros(len(casenames), dtype=float)
  
     wrf_cot_rot   = np.zeros(len(casenames), dtype=float)
@@ -229,16 +230,23 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
         # w_rotor = np.mean(les_data[count]['w'],axis=0)
 
         # Compute induction
-        ind         = 1 - u_rotor / U_inf 
+        # ind         = 1 - u_rotor / U_inf 
+        ind         = 1 - u_rotor / u_inf.T
         ind_annulus = postproc.annulus_average(theta, ind)
         ind_rotor   = postproc.rotor_average(mu, ind_annulus, R_hub, R)
 
         # Compute new rotor disk velocities based on background flow and rotor-averaged axial induction
-        u_rot_avg = ((((1-ind_rotor) * u_inf)**2 + v_inf**2)**(1/2) * np.cos(np.atan2(v_inf, u_inf))).T
-        v_rot_avg = ((((1-ind_rotor) * u_inf)**2 + v_inf**2)**(1/2) * np.sin(np.atan2(v_inf, u_inf))).T
+        # u_rot_avg = ((((1-ind_rotor) * u_inf)**2 + v_inf**2)**(1/2) * np.cos(np.atan2(v_inf, u_inf))).T
+        # v_rot_avg = ((((1-ind_rotor) * u_inf)**2 + v_inf**2)**(1/2) * np.sin(np.atan2(v_inf, u_inf))).T
+
+        u_rot_avg = U_inf * (1 - ind_rotor) * np.cos(wdir_inf)
+        v_rot_avg = U_inf * (1 - ind_rotor) * np.sin(wdir_inf)
+
+        # u_ann_avg = U_inf * (1 - ind_annulus) * np.cos(wdir_inf)
+        # v_ann_avg = U_inf * (1 - ind_annulus) * np.sin(wdir_inf)
 
         U_disk    = np.sqrt(u_rot_avg**2 + v_rot_avg**2)
-        wdir_disk = 
+        wdir_disk = np.atan2(v_rot_avg, u_rot_avg)
 
         r_mat  = (np.ones_like(u_inf) * r).T
         mu_mat = (np.ones_like(u_inf) * mu).T
@@ -268,7 +276,9 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
         # Inflow angleCompu
         phi = np.atan2(Vax,Vtn)
 
-        aoa  = phi - twist[:, np.newaxis] - np.deg2rad(np.mean(les_data[count]['pitch'], axis=0))
+        pitch = np.deg2rad(np.mean(les_data[count]['pitch'], axis=0))
+
+        aoa  = phi - twist[:, np.newaxis] - pitch
         Cl, Cd = rotor.clcd(mu_mat, aoa)
 
         # Axial coefficient
@@ -276,6 +286,7 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
 
         # Local CT
         ct = sigma_bem * (W/U_hub)**2 * Cax
+        # ct = sigma_bem * (W/U_inf)**2 * Cax
 
         rho = 1.225
 
@@ -329,6 +340,7 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
  
         Uhub[count]              = U_hub
         wrf_omg[count]           = np.mean(les_data[count]['omega'], axis=0)
+        wrf_pitch[count]         = pitch
         wrf_U_inf[:,:,count]     = U_inf
         wrf_wdir_inf[:,:,count]  = wdir_inf
 
@@ -342,9 +354,11 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
         np.save(params['field_data_path'] + 'U_disk.npy', wrf_U_disk)
         np.save(params['field_data_path'] + 'dir_disk.npy', wrf_wdir_disk)
         np.save(params['field_data_path'] + 'Uhub.npy', Uhub)
+        np.save(params['field_data_path'] + 'pitch.npy', wrf_pitch)
         np.save(params['field_data_path'] + 'wrf_omg.npy', wrf_omg)
 
-        print(f'Field data saved at {params['field_data_path']}')
+
+        print(f'Field data saved at {params["field_data_path"]}')
 
     if rotor_data:
         return {
@@ -368,6 +382,8 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
             'veers_rotor'   : veers,
             'shears_annulus': shears_ann,
             'veers_annulus' : veers_ann,
+            'cotp_rotor'    : wrf_cot_rot / (1 - wrf_ind_rot)**2,
+            'cotp_rotor2'   : 4 * wrf_ind_rot / (1 - wrf_ind_rot),
         }
 
 
@@ -385,6 +401,7 @@ def scale_and_encode(input_dict, training: bool, scalars: Optional[Dict] = None)
         'cot_rotor', 'ind_rotor',
         'shears_rotor', 'veers_rotor',
         'shears_annulus', 'veers_annulus',
+        'cotp_rotor',
     ]
 
     # Compute regimes from shear and veer
@@ -482,7 +499,7 @@ def load_scalars(opt_params: Dict) -> Dict[str, object]:
         'scaler_cot_rotor', 'scaler_ind_rotor',
         'scaler_shears_rotor', 'scaler_veers_rotor',
         'scaler_shears_annulus', 'scaler_veers_annulus',
-        'encoder_rotor', 'encoder_annulus',
+        'encoder_rotor', 'encoder_annulus', 'scaler_cotp_rotor',
     ]
     optional_local_keys = ['scaler_cot_local', 'scaler_ind_local']
 
@@ -545,7 +562,7 @@ def load_scalars(opt_params: Dict) -> Dict[str, object]:
         'scaler_cot_rotor', 'scaler_ind_rotor',
         'scaler_shears_rotor', 'scaler_veers_rotor',
         'scaler_shears_annulus', 'scaler_veers_annulus',
-        'encoder_rotor', 'encoder_annulus',
+        'encoder_rotor', 'encoder_annulus','scaler_cotp_rotor',
     ]
     missing = [k for k in must_have if k not in scalars]
     if missing:
@@ -574,6 +591,8 @@ def save_dataset(params: Dict[str, Any], data):
 
     savemat(params['gp_dir']+ 'wrf_10MW_ann_OH.mat', {'X': X_ann, 'y': y_ann.reshape(-1, 1)})
     savemat(params['gp_dir']+ 'wrf_10MW_rot_OH.mat', {'X': X_rot, 'y': y_rot.reshape(-1, 1)})
+
+    print(f'Data saved to {params["gp_dir"]}')
 
 def save_scalars(params: Dict[str, Any], scalars):
     with open(os.path.join(params['gp_dir'], 'scaler_wrf_cot_ann.pkl'), 'wb') as f:
@@ -605,5 +624,8 @@ def save_scalars(params: Dict[str, Any], scalars):
 
     with open(os.path.join(params['gp_dir'], 'encoder_ann.pkl'), 'wb') as f:
         pickle.dump(scalars['encoder_annulus'], f)
+
+    with open(os.path.join(params['gp_dir'], 'scaler_wrf_cotp_rot.pkl'), 'wb') as f:
+        pickle.dump(scalars['scaler_cotp_rotor'], f)
 
     print(f'Scalars saved to {params["gp_dir"]}')
