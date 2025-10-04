@@ -383,7 +383,7 @@ def compute_les_data(casenames, params, inflow_data, les_data, field_data, rotor
             'shears_annulus': shears_ann,
             'veers_annulus' : veers_ann,
             'cotp_rotor'    : wrf_cot_rot / (1 - wrf_ind_rot)**2,
-            'cotp_rotor2'   : 4 * wrf_ind_rot / (1 - wrf_ind_rot),
+            'cotp_annulus'  : wrf_cot_ann / (1 - wrf_ind_ann)**2,
         }
 
 
